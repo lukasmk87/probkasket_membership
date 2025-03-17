@@ -721,4 +721,515 @@ function export_registration_as_pdf($id) {
         throw new Exception("Fehler beim Erzeugen des PDFs: " . $e->getMessage());
     }
 }
+// Funktion zum Generieren einer PDF für eine Anmeldung (speichert Datei statt direktem Download)
+function generate_registration_pdf($id, $save_path = null) {
+    global $conn;
+    
+    // Wenn kein Pfad angegeben, im Uploads-Verzeichnis speichern
+    if ($save_path === null) {
+        $save_path = __DIR__ . '/../uploads/';
+        
+        // Verzeichnis erstellen falls nicht vorhanden
+        if (!file_exists($save_path)) {
+            mkdir($save_path, 0755, true);
+        }
+    }
+    
+    // Anmeldung aus der Datenbank holen
+    $registration = get_registration($id);
+    
+    // Prüfen, ob Anmeldung existiert
+    if (!$registration) {
+        return false;
+    }
+    
+    // TCPDF-Bibliothek einbinden
+    $tcpdf_paths = [
+        __DIR__ . '/../tcpdf/tcpdf.php',
+        __DIR__ . '/../../tcpdf/tcpdf.php',
+        __DIR__ . '/../vendor/tecnickcom/tcpdf/tcpdf.php'
+    ];
+    
+    $found_tcpdf = null;
+    foreach ($tcpdf_paths as $path) {
+        if (file_exists($path)) {
+            $found_tcpdf = $path;
+            break;
+        }
+    }
+    
+    if (!$found_tcpdf) {
+        return false;
+    }
+    
+    require_once($found_tcpdf);
+    
+    // Verarbeite Unterschriftsdaten (falls vorhanden)
+    $signature_image = null;
+    if (!empty($registration['signature_data']) && strpos($registration['signature_data'], 'data:image') !== false) {
+        try {
+            $signature_parts = explode(',', $registration['signature_data'], 2);
+            if (count($signature_parts) == 2) {
+                $signature_image = base64_decode($signature_parts[1]);
+            }
+        } catch (Exception $e) {
+            $signature_image = null;
+        }
+    }
+    
+    // Datumsformatierung vorbereiten
+    $formattedDate = "";
+    if (isset($registration['date']) && !empty($registration['date'])) {
+        try {
+            $date = new DateTime($registration['date']);
+            $formattedDate = $date->format('d.m.Y');
+        } catch (Exception $e) {
+            $formattedDate = $registration['date'];
+        }
+    } elseif (isset($registration['date_submitted']) && !empty($registration['date_submitted'])) {
+        try {
+            $date = new DateTime($registration['date_submitted']);
+            $formattedDate = $date->format('d.m.Y');
+        } catch (Exception $e) {
+            $formattedDate = $registration['date_submitted'];
+        }
+    } else {
+        $formattedDate = date('d.m.Y');
+    }
+    
+    // PDF erstellen
+    $pdf = new TCPDF('P', 'mm', 'A4', true, 'UTF-8', false);
+    $pdf->SetCreator('Pro Basketball GT e.V.');
+    $pdf->SetAuthor('Pro Basketball GT e.V.');
+    $pdf->SetTitle('Mitgliedsantrag ' . $registration['vorname'] . ' ' . $registration['name']);
+    $pdf->SetSubject('Beitrittserklärung Pro Basketball GT e.V.');
+    $pdf->setPrintHeader(false);
+    $pdf->setPrintFooter(false);
+    $pdf->SetFont('helvetica', '', 12);
+    $pdf->SetMargins(15, 15, 15);
+    
+    // Neue Seite
+    $pdf->AddPage();
+    
+    // Logo einfügen (falls vorhanden)
+    $logo_path = __DIR__ . '/../assets/logo.png';
+    if (file_exists($logo_path)) {
+        try {
+            $pdf->Image($logo_path, 15, 15, 40, 0, 'PNG');
+        } catch (Exception $e) {
+            // Fehler beim Logo-Laden ignorieren
+        }
+    }
+    
+    // --- Inhalt ---
+    // Überschrift
+    $pdf->SetFont('helvetica', 'B', 16);
+    $pdf->Cell(0, 20, 'Beitrittserklärung Pro Basketball GT e.V.', 0, 1, 'C');
+    
+    // Vereinsinformationen
+    $pdf->SetFont('helvetica', '', 10);
+    $pdf->Cell(0, 5, 'Pro Basketball GT e.V.', 0, 1, 'R');
+    $pdf->Cell(0, 5, 'Pavenstädter Weg 35', 0, 1, 'R');
+    $pdf->Cell(0, 5, '33334 Gütersloh', 0, 1, 'R');
+    $pdf->Ln(10);
+    
+    // Einleitung
+    $pdf->SetFont('helvetica', 'B', 12);
+    $pdf->Cell(0, 8, 'Hiermit erkläre ich meinen Beitrittswillen zum Verein „pro Basketball GT e.V."', 0, 1, 'L');
+    $pdf->Ln(5);
+    
+    // Mitgliedsdaten
+    $pdf->SetFont('helvetica', 'B', 12);
+    $pdf->Cell(0, 10, 'Mitgliedsdaten:', 0, 1, 'L');
+    
+    // Tabelle erstellen für persönliche Daten
+    $pdf->SetFillColor(240, 240, 240);
+    $pdf->SetFont('helvetica', '', 11);
+    
+    $pdf->Cell(50, 8, 'Name:', 1, 0, 'L', true);
+    $pdf->Cell(125, 8, $registration['vorname'] . ' ' . $registration['name'], 1, 1, 'L');
+    
+    $pdf->Cell(50, 8, 'Adresse:', 1, 0, 'L', true);
+    $pdf->Cell(125, 8, $registration['strasse'] . ', ' . $registration['plz_ort'], 1, 1, 'L');
+    
+    $pdf->Cell(50, 8, 'Telefon:', 1, 0, 'L', true);
+    $pdf->Cell(125, 8, $registration['telefon'], 1, 1, 'L');
+    
+    $pdf->Cell(50, 8, 'E-Mail:', 1, 0, 'L', true);
+    $pdf->Cell(125, 8, $registration['email'], 1, 1, 'L');
+    
+    $pdf->Cell(50, 8, 'Geburtsdatum:', 1, 0, 'L', true);
+    $pdf->Cell(125, 8, $registration['geburtsdatum'], 1, 1, 'L');
+    
+    $pdf->Ln(5);
+    
+    // Beteiligung
+    $pdf->SetFont('helvetica', 'B', 12);
+    $pdf->Cell(0, 8, 'Beteiligung:', 0, 1, 'L');
+    $pdf->SetFont('helvetica', '', 11);
+    
+    $beteiligung = $registration['beteiligung'] == 'aktiv' ? 
+        'Aktive Beteiligung: Ich möchte mich aktiv im Verein beteiligen.' : 
+        'Passive Unterstützung: Ich unterstütze den Verein, eine aktive Beteiligung wird mir nicht möglich sein.';
+    
+    $pdf->MultiCell(0, 8, $beteiligung, 0, 'L');
+    $pdf->Ln(5);
+    
+    // Beitrag
+    $pdf->SetFont('helvetica', 'B', 12);
+    $pdf->Cell(0, 8, 'Mitgliedsbeitrag:', 0, 1, 'L');
+    $pdf->SetFont('helvetica', '', 11);
+    
+    $beitrag = '';
+    if ($registration['beitrag'] == '10') {
+        $beitrag = '10 € (Mindestbeitrag)';
+    } elseif ($registration['beitrag'] == '30') {
+        $beitrag = '30 €';
+    } else {
+        $beitrag = $registration['beitrag_custom'] . ' €';
+    }
+    
+    $pdf->Cell(50, 8, 'Jährlicher Beitrag:', 1, 0, 'L', true);
+    $pdf->Cell(125, 8, $beitrag, 1, 1, 'L');
+    $pdf->Ln(5);
+    
+    // Bankdaten
+    $pdf->SetFont('helvetica', 'B', 12);
+    $pdf->Cell(0, 8, 'Einzugsermächtigung:', 0, 1, 'L');
+    $pdf->SetFont('helvetica', '', 11);
+    
+    $pdf->MultiCell(0, 8, 'Hiermit ermächtige ich den Verein „pro Basketball GT e.V." bis auf Widerruf, den oben genannten Jahres-Mitgliedsbeitrag von folgendem Konto abzubuchen:', 0, 'L');
+    $pdf->Ln(3);
+    
+    $pdf->Cell(50, 8, 'IBAN:', 1, 0, 'L', true);
+    $pdf->Cell(125, 8, $registration['iban'], 1, 1, 'L');
+    
+    $pdf->Cell(50, 8, 'Bank:', 1, 0, 'L', true);
+    $pdf->Cell(125, 8, $registration['bank'], 1, 1, 'L');
+    $pdf->Ln(10);
+    
+    // Unterschrift und Datum
+    $pdf->SetFont('helvetica', 'B', 12);
+    $pdf->Cell(0, 8, 'Unterschrift:', 0, 1, 'L');
+    
+    // Unterschriftsbild einfügen, wenn verfügbar
+    if ($signature_image !== null) {
+        try {
+            // Temporäre Datei für die Unterschrift erstellen
+            $temp_dir = sys_get_temp_dir();
+            $temp_sig_file = tempnam($temp_dir, 'sig');
+            file_put_contents($temp_sig_file, $signature_image);
+            
+            // Position und Größe für die Unterschrift
+            $pdf->Image($temp_sig_file, 15, $pdf->GetY(), 80, 0, 'PNG');
+            
+            // Temporäre Datei löschen
+            @unlink($temp_sig_file);
+            
+            // Platz für die Unterschrift
+            $pdf->Ln(30);
+        } catch (Exception $e) {
+            // Bei Fehler: Texthinweis anzeigen
+            $pdf->Cell(0, 8, "[Elektronische Unterschrift liegt vor]", 0, 1, 'L');
+            $pdf->Ln(5);
+        }
+    } else {
+        // Wenn keine Unterschrift: Hinweis anzeigen
+        $pdf->Cell(0, 8, "[Elektronische Unterschrift liegt vor]", 0, 1, 'L');
+        $pdf->Ln(5);
+    }
+    
+    // Unterschriftsdatum - Hervorgehoben
+    $pdf->SetFont('helvetica', 'B', 11);
+    $pdf->Cell(50, 8, 'Datum:', 1, 0, 'L', true);
+    $pdf->Cell(125, 8, $formattedDate, 1, 1, 'L');
+    
+    // Datenschutzhinweis
+    $pdf->Ln(10);
+    $pdf->SetFont('helvetica', 'I', 10);
+    $pdf->MultiCell(0, 5, 'Hinweis: Der Unterzeichner hat den Datenschutzbestimmungen des Vereins „pro Basketball GT e.V." zugestimmt.', 0, 'L');
+    
+    // Fußzeile
+    $pdf->Ln(15);
+    $pdf->SetFont('helvetica', 'I', 8);
+    $pdf->Cell(0, 5, 'Pro Basketball GT e.V. - Pavenstädter Weg 35 - 33334 Gütersloh', 0, 1, 'C');
+    $pdf->Cell(0, 5, 'E-Mail: info@probasketballgt.de - Web: www.probasketballgt.de', 0, 1, 'C');
+    $pdf->Cell(0, 5, 'Bankverbindung: Volksbank Gütersloh, IBAN: DE31478601250585471800, BIC: GENODEM1GTL', 0, 1, 'C');
+    
+    // Eindeutigen Dateinamen generieren
+    $filename = 'Beitrittserklärung_' . 
+               preg_replace('/[^a-zA-Z0-9]/', '_', $registration['name']) . '_' . 
+               preg_replace('/[^a-zA-Z0-9]/', '_', $registration['vorname']) . '.pdf';
+    
+    // Vollständigen Pfad zur Datei
+    $filepath = $save_path . $filename;
+    
+    // PDF speichern
+    $pdf->Output($filepath, 'F');  // 'F' bedeutet in Datei speichern
+    
+    return $filepath;
+}
+// Funktion zum Senden einer E-Mail mit Anhang
+function send_email_with_attachment($to, $subject, $message, $attachment_path = null, $from_email = null, $reply_to = null) {
+    // Wenn keine Absender-E-Mail angegeben, Standardwert verwenden
+    if ($from_email === null) {
+        $from_email = 'noreply@probasketballgt.de';
+    }
+    
+    // From-Name und From-Email trennen
+    $from_name = 'Pro Basketball GT e.V.';
+    
+    // Boundary für MIME-Teile
+    $boundary = md5(time());
+    
+    // Header für MIME-Multipart-Nachricht
+    $headers = "MIME-Version: 1.0" . "\r\n";
+    $headers .= "From: " . $from_name . " <" . $from_email . ">" . "\r\n";
+    
+    // Reply-To hinzufügen, falls angegeben
+    if ($reply_to !== null) {
+        $headers .= "Reply-To: " . $reply_to . "\r\n";
+    }
+    
+    // Content-Type für Multipart-Nachricht
+    $headers .= "Content-Type: multipart/mixed; boundary=\"" . $boundary . "\"" . "\r\n";
+    
+    // Nachrichtentext erstellen
+    $email_message = "--" . $boundary . "\r\n";
+    $email_message .= "Content-Type: text/html; charset=UTF-8" . "\r\n";
+    $email_message .= "Content-Transfer-Encoding: 8bit" . "\r\n\r\n";
+    $email_message .= $message . "\r\n\r\n";
+    
+    // Anhang hinzufügen, falls vorhanden
+    if ($attachment_path !== null && file_exists($attachment_path)) {
+        // Dateinamen aus Pfad extrahieren
+        $filename = basename($attachment_path);
+        
+        // Inhalt der Datei lesen
+        $file_content = file_get_contents($attachment_path);
+        
+        // Base64-Kodierung
+        $file_content = chunk_split(base64_encode($file_content));
+        
+        // Anhang zum E-Mail-Text hinzufügen
+        $email_message .= "--" . $boundary . "\r\n";
+        $email_message .= "Content-Type: application/pdf; name=\"" . $filename . "\"" . "\r\n";
+        $email_message .= "Content-Disposition: attachment; filename=\"" . $filename . "\"" . "\r\n";
+        $email_message .= "Content-Transfer-Encoding: base64" . "\r\n\r\n";
+        $email_message .= $file_content . "\r\n\r\n";
+    }
+    
+    // Nachricht abschließen
+    $email_message .= "--" . $boundary . "--";
+    
+    // E-Mail senden
+    $result = mail($to, $subject, $email_message, $headers);
+    
+    return $result;
+}
+
+// Aktualisierte Funktion zum Senden einer Bestätigungsmail mit PDF-Anhang
+function send_confirmation_email($data, $registration_id = null) {
+    // PDF nur generieren, wenn eine ID übergeben wurde
+    $pdf_path = null;
+    if ($registration_id !== null) {
+        try {
+            $pdf_path = generate_registration_pdf($registration_id);
+        } catch (Exception $e) {
+            error_log("Fehler beim Generieren des PDF-Anhangs: " . $e->getMessage());
+            // Weitermachen ohne Anhang, wenn Fehler auftritt
+        }
+    }
+    
+    $to = $data['email'];
+    $subject = "Ihre Anmeldung bei Pro Basketball GT e.V.";
+    
+    $message = "
+    <html>
+    <head>
+        <title>Bestätigung Ihrer Anmeldung</title>
+        <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            h2 { color: #eb971b; }
+            .details { background-color: #f7f7f7; padding: 15px; border-left: 4px solid #eb971b; }
+            .footer { font-size: 12px; color: #777; margin-top: 30px; border-top: 1px solid #ddd; padding-top: 10px; }
+        </style>
+    </head>
+    <body>
+        <h2>Vielen Dank für Ihre Anmeldung bei Pro Basketball GT e.V.!</h2>
+        <p>Sehr geehrte(r) {$data['vorname']} {$data['name']},</p>
+        <p>wir freuen uns, Ihre Anmeldung bei Pro Basketball GT e.V. bestätigen zu können. Ihre Mitgliedschaft ist nun aktiv.</p>
+        
+        <div class='details'>
+            <h3>Ihre angegebenen Daten:</h3>
+            <ul>
+                <li><strong>Name:</strong> {$data['vorname']} {$data['name']}</li>
+                <li><strong>Adresse:</strong> {$data['strasse']}, {$data['plz_ort']}</li>
+                <li><strong>Telefon:</strong> {$data['telefon']}</li>
+                <li><strong>E-Mail:</strong> {$data['email']}</li>
+                <li><strong>Geburtsdatum:</strong> {$data['geburtsdatum']}</li>
+                <li><strong>Beteiligung:</strong> " . ($data['beteiligung'] == 'aktiv' ? 'Aktive Beteiligung' : 'Passive Unterstützung') . "</li>
+                <li><strong>Mitgliedsbeitrag:</strong> ";
+    
+    // Beitrag anzeigen
+    if ($data['beitrag'] == '10') {
+        $message .= "10 € (Mindestbeitrag)";
+    } elseif ($data['beitrag'] == '30') {
+        $message .= "30 €";
+    } else {
+        $message .= "{$data['beitrag_custom_value']} €";
+    }
+    
+    $message .= "</li>
+            </ul>
+        </div>
+        
+        <p>Der Jahresbeitrag wird gemäß Ihrer Einzugsermächtigung von Ihrem angegebenen Konto in der zweiten Jahreshälfte abgebucht.</p>
+        
+        <p>Im Anhang finden Sie eine PDF-Datei mit Ihrer Beitrittserklärung. Bitte bewahren Sie diese für Ihre Unterlagen auf.</p>
+        
+        <p>Falls Sie Fragen oder Anliegen haben, können Sie uns jederzeit unter info@probasketballgt.de kontaktieren.</p>
+        
+        <p>Mit sportlichen Grüßen,<br>Ihr Team von Pro Basketball GT e.V.</p>
+        
+        <div class='footer'>
+            <p>
+                Pro Basketball GT e.V.<br>
+                Pavenstädter Weg 35<br>
+                33334 Gütersloh<br>
+                E-Mail: info@probasketballgt.de<br>
+                Web: www.probasketballgt.de
+            </p>
+        </div>
+    </body>
+    </html>
+    ";
+    
+    // E-Mail mit Anhang senden
+    $result = send_email_with_attachment($to, $subject, $message, $pdf_path);
+    
+    // Wenn die E-Mail gesendet wurde und ein PDF generiert wurde, dieses löschen
+    if ($result && $pdf_path && file_exists($pdf_path)) {
+        @unlink($pdf_path); // Temporäre PDF-Datei löschen
+    }
+    
+    return $result;
+}
+
+// Aktualisierte Funktion zum Senden einer Benachrichtigungsmail an den Administrator mit PDF-Anhang
+function send_admin_notification_email($data, $registration_id = null) {
+    // PDF nur generieren, wenn eine ID übergeben wurde
+    $pdf_path = null;
+    if ($registration_id !== null) {
+        try {
+            $pdf_path = generate_registration_pdf($registration_id);
+        } catch (Exception $e) {
+            error_log("Fehler beim Generieren des PDF-Anhangs für Admin: " . $e->getMessage());
+            // Weitermachen ohne Anhang, wenn Fehler auftritt
+        }
+    }
+    
+    // Konstante für die Admin-E-Mail aus config.php verwenden, falls vorhanden
+    $to = defined('ADMIN_EMAIL') ? ADMIN_EMAIL : 'info@probasketballgt.de';
+    $subject = "Neue Vereinsanmeldung: " . $data['vorname'] . " " . $data['name'];
+    
+    $message = "
+    <html>
+    <head>
+        <title>Neue Vereinsanmeldung</title>
+        <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            h2 { color: #eb971b; }
+            table { border-collapse: collapse; width: 100%; margin: 20px 0; }
+            th, td { text-align: left; padding: 8px; border: 1px solid #ddd; }
+            th { background-color: #f2f2f2; }
+            .footer { font-size: 12px; color: #777; margin-top: 30px; }
+        </style>
+    </head>
+    <body>
+        <h2>Neue Vereinsanmeldung eingegangen</h2>
+        <p>Ein neues Mitglied hat sich bei Pro Basketball GT e.V. angemeldet:</p>
+        
+        <h3>Mitgliedsdaten:</h3>
+        <table>
+            <tr>
+                <th>Feld</th>
+                <th>Wert</th>
+            </tr>
+            <tr>
+                <td><strong>Name</strong></td>
+                <td>{$data['vorname']} {$data['name']}</td>
+            </tr>
+            <tr>
+                <td><strong>Adresse</strong></td>
+                <td>{$data['strasse']}, {$data['plz_ort']}</td>
+            </tr>
+            <tr>
+                <td><strong>Telefon</strong></td>
+                <td>{$data['telefon']}</td>
+            </tr>
+            <tr>
+                <td><strong>E-Mail</strong></td>
+                <td>{$data['email']}</td>
+            </tr>
+            <tr>
+                <td><strong>Geburtsdatum</strong></td>
+                <td>{$data['geburtsdatum']}</td>
+            </tr>
+            <tr>
+                <td><strong>Beteiligung</strong></td>
+                <td>" . ($data['beteiligung'] == 'aktiv' ? 'Aktive Beteiligung' : 'Passive Unterstützung') . "</td>
+            </tr>
+            <tr>
+                <td><strong>Mitgliedsbeitrag</strong></td>
+                <td>";
+    
+    // Beitrag anzeigen
+    if ($data['beitrag'] == '10') {
+        $message .= "10 € (Mindestbeitrag)";
+    } elseif ($data['beitrag'] == '30') {
+        $message .= "30 €";
+    } else {
+        $message .= "{$data['beitrag_custom_value']} €";
+    }
+    
+    $message .= "</td>
+            </tr>
+            <tr>
+                <td><strong>IBAN</strong></td>
+                <td>{$data['iban']}</td>
+            </tr>
+            <tr>
+                <td><strong>Bank</strong></td>
+                <td>{$data['bank']}</td>
+            </tr>
+            <tr>
+                <td><strong>Datum</strong></td>
+                <td>{$data['date']}</td>
+            </tr>
+        </table>
+        
+        <p>Die Beitrittserklärung des Mitglieds finden Sie im Anhang als PDF-Datei.</p>
+        <p>Sie können diese Anmeldung auch im Admin-Bereich der Website einsehen und verwalten.</p>
+        
+        <div class='footer'>
+            <p>
+                Diese E-Mail wurde automatisch vom Anmeldesystem von Pro Basketball GT e.V. gesendet.<br>
+                Bei Fragen oder Problemen kontaktieren Sie bitte den Webmaster.
+            </p>
+        </div>
+    </body>
+    </html>
+    ";
+    
+    // E-Mail mit Anhang senden und Reply-To auf die E-Mail des neuen Mitglieds setzen
+    $result = send_email_with_attachment($to, $subject, $message, $pdf_path, null, $data['email']);
+    
+    // PDF löschen, falls es das gleiche ist wie bei der Bestätigungsmail, wird es dort bereits gelöscht
+    if ($result && $pdf_path && file_exists($pdf_path)) {
+        @unlink($pdf_path); // Temporäre PDF-Datei löschen
+    }
+    
+    return $result;
+}
 ?>

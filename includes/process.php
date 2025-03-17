@@ -95,51 +95,53 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             error_log("Versuche Anmeldung zu speichern...");
             $registration_id = save_registration($data);
             
-            if ($registration_id) {
-                error_log("Anmeldung erfolgreich gespeichert, ID: " . $registration_id);
-                // Bestätigungsmail an den Benutzer senden
-                try {
-                    send_confirmation_email($data);
-                    error_log("Bestätigungsmail erfolgreich gesendet an: " . $email);
-                } catch (Exception $e) {
-                    // E-Mail-Fehler protokollieren, aber Prozess fortsetzen
-                    error_log("E-Mail-Fehler (Benutzer): " . $e->getMessage());
-                }
-                
-                // Benachrichtigungsmail an den Administrator senden
-                try {
-                    send_admin_notification_email($data);
-                    error_log("Benachrichtigungsmail erfolgreich an Administrator gesendet");
-                } catch (Exception $e) {
-                    // E-Mail-Fehler protokollieren, aber Prozess fortsetzen
-                    error_log("E-Mail-Fehler (Admin): " . $e->getMessage());
-                }
-                
-                // URL zur Erfolgsseite erstellen
-                $success_url = "../success.php?id=" . $registration_id;
-                
-                // Erfolg: Zur Erfolgsseite weiterleiten mit Header
-                header("Location: " . $success_url);
-                
-                // JavaScript-Fallback für die Weiterleitung
-                echo "<script>window.location.href = '" . $success_url . "';</script>";
-                
-                // HTML-Fallback für die Weiterleitung
-                echo "<!DOCTYPE html>
-                <html>
-                <head>
-                    <meta http-equiv='refresh' content='0;url=" . $success_url . "'>
-                    <title>Weiterleitung...</title>
-                </head>
-                <body>
-                    <p>Ihre Anmeldung wurde erfolgreich gespeichert. Falls Sie nicht automatisch weitergeleitet werden, klicken Sie bitte <a href='" . $success_url . "'>hier</a>.</p>
-                </body>
-                </html>";
-                
-                // Buffer leeren und beenden
-                ob_end_flush();
-                exit;
-            } else {
+            // Nach erfolgreicher Speicherung der Anmeldung
+				if ($registration_id) {
+					error_log("Anmeldung erfolgreich gespeichert, ID: " . $registration_id);
+					
+					// Bestätigungsmail an den Benutzer senden (mit PDF-Anhang)
+					try {
+						send_confirmation_email($data, $registration_id);
+						error_log("Bestätigungsmail erfolgreich gesendet an: " . $email);
+					} catch (Exception $e) {
+						// E-Mail-Fehler protokollieren, aber Prozess fortsetzen
+						error_log("E-Mail-Fehler (Benutzer): " . $e->getMessage());
+					}
+					
+					// Benachrichtigungsmail an den Administrator senden (mit PDF-Anhang)
+					try {
+						send_admin_notification_email($data, $registration_id);
+						error_log("Benachrichtigungsmail erfolgreich an Administrator gesendet");
+					} catch (Exception $e) {
+						// E-Mail-Fehler protokollieren, aber Prozess fortsetzen
+						error_log("E-Mail-Fehler (Admin): " . $e->getMessage());
+					}
+					
+					// URL zur Erfolgsseite erstellen
+					$success_url = "../success.php?id=" . $registration_id;
+					
+					// Erfolg: Zur Erfolgsseite weiterleiten mit Header
+					header("Location: " . $success_url);
+					
+					// JavaScript-Fallback für die Weiterleitung
+					echo "<script>window.location.href = '" . $success_url . "';</script>";
+					
+					// HTML-Fallback für die Weiterleitung
+					echo "<!DOCTYPE html>
+					<html>
+					<head>
+						<meta http-equiv='refresh' content='0;url=" . $success_url . "'>
+						<title>Weiterleitung...</title>
+					</head>
+					<body>
+						<p>Ihre Anmeldung wurde erfolgreich gespeichert. Falls Sie nicht automatisch weitergeleitet werden, klicken Sie bitte <a href='" . $success_url . "'>hier</a>.</p>
+					</body>
+					</html>";
+					
+					// Buffer leeren und beenden
+					ob_end_flush();
+					exit;
+				} else {
                 // Fehler beim Speichern
                 error_log("Fehler beim Speichern der Anmeldung: save_registration returned false");
                 $_SESSION['error_message'] = "Beim Speichern Ihrer Anmeldung ist ein Fehler aufgetreten. Bitte versuchen Sie es später noch einmal.";
