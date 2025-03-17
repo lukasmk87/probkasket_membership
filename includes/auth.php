@@ -92,8 +92,141 @@ function require_admin() {
     }
 }
 
-// Rest des Codes für Benutzerverwaltung bleibt unverändert
-// ... (Funktionen für Benutzerverwaltung)
+// Funktionen für Benutzerverwaltung
+
+// Abrufen aller Admin-Benutzer
+function get_all_admin_users() {
+    global $conn;
+    
+    $sql = "SELECT * FROM admin_users ORDER BY role DESC, name ASC";
+    $result = $conn->query($sql);
+    
+    $users = [];
+    while ($row = $result->fetch_assoc()) {
+        $users[] = $row;
+    }
+    
+    return $users;
+}
+
+// Abrufen eines bestimmten Admin-Benutzers über seine ID
+function get_admin_user($id) {
+    global $conn;
+    
+    $stmt = $conn->prepare("SELECT * FROM admin_users WHERE id = ?");
+    $stmt->bind_param("i", $id);
+    $stmt->execute();
+    
+    $result = $stmt->get_result();
+    $user = $result->fetch_assoc();
+    
+    $stmt->close();
+    
+    return $user;
+}
+
+// Hinzufügen eines neuen Admin-Benutzers
+function add_admin_user($data) {
+    global $conn;
+    
+    // Passwort hashen
+    $hashed_password = password_hash($data['password'], PASSWORD_DEFAULT);
+    
+    // Aktiv-Status umwandeln
+    $is_active = $data['is_active'] ? 1 : 0;
+    
+    $stmt = $conn->prepare("INSERT INTO admin_users (username, password, name, email, role, is_active, created_at) VALUES (?, ?, ?, ?, ?, ?, NOW())");
+    $stmt->bind_param("sssssi", $data['username'], $hashed_password, $data['name'], $data['email'], $data['role'], $is_active);
+    
+    $result = $stmt->execute();
+    $user_id = $result ? $conn->insert_id : 0;
+    
+    $stmt->close();
+    
+    return $user_id;
+}
+
+// Aktualisieren eines bestehenden Admin-Benutzers
+function update_admin_user($id, $data) {
+    global $conn;
+    
+    // Wenn Passwort leer ist, behalten wir das alte bei
+    if (empty($data['password'])) {
+        $sql = "UPDATE admin_users SET username = ?, name = ?, email = ?, role = ?, is_active = ? WHERE id = ?";
+        $stmt = $conn->prepare($sql);
+        
+        // Aktiv-Status umwandeln
+        $is_active = $data['is_active'] ? 1 : 0;
+        
+        $stmt->bind_param("ssssii", $data['username'], $data['name'], $data['email'], $data['role'], $is_active, $id);
+    } else {
+        // Neues Passwort hashen
+        $hashed_password = password_hash($data['password'], PASSWORD_DEFAULT);
+        
+        $sql = "UPDATE admin_users SET username = ?, password = ?, name = ?, email = ?, role = ?, is_active = ? WHERE id = ?";
+        $stmt = $conn->prepare($sql);
+        
+        // Aktiv-Status umwandeln
+        $is_active = $data['is_active'] ? 1 : 0;
+        
+        $stmt->bind_param("sssssii", $data['username'], $hashed_password, $data['name'], $data['email'], $data['role'], $is_active, $id);
+    }
+    
+    $result = $stmt->execute();
+    $stmt->close();
+    
+    return $result;
+}
+
+// Löschen eines Admin-Benutzers
+function delete_admin_user($id) {
+    global $conn;
+    
+    $stmt = $conn->prepare("DELETE FROM admin_users WHERE id = ?");
+    $stmt->bind_param("i", $id);
+    
+    $result = $stmt->execute();
+    $stmt->close();
+    
+    return $result;
+}
+
+// Zählen der Admin-Benutzer nach Rolle
+function count_admin_users_by_role($role) {
+    global $conn;
+    
+    $stmt = $conn->prepare("SELECT COUNT(*) as count FROM admin_users WHERE role = ?");
+    $stmt->bind_param("s", $role);
+    $stmt->execute();
+    
+    $result = $stmt->get_result();
+    $row = $result->fetch_assoc();
+    
+    $stmt->close();
+    
+    return $row['count'];
+}
+
+// Prüfen, ob ein Benutzername bereits existiert (optional: außer bei dem Benutzer mit der angegebenen ID)
+function username_exists($username, $exclude_id = 0) {
+    global $conn;
+    
+    if ($exclude_id > 0) {
+        $stmt = $conn->prepare("SELECT COUNT(*) as count FROM admin_users WHERE username = ? AND id != ?");
+        $stmt->bind_param("si", $username, $exclude_id);
+    } else {
+        $stmt = $conn->prepare("SELECT COUNT(*) as count FROM admin_users WHERE username = ?");
+        $stmt->bind_param("s", $username);
+    }
+    
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $row = $result->fetch_assoc();
+    
+    $stmt->close();
+    
+    return $row['count'] > 0;
+}
 
 // CSRF-Token generieren
 function generate_csrf_token() {
@@ -106,4 +239,20 @@ function generate_csrf_token() {
 // CSRF-Token validieren
 function validate_csrf_token($token) {
     return isset($_SESSION['csrf_token']) && hash_equals($_SESSION['csrf_token'], $token);
+}
+
+// Passwort eines Admin-Benutzers ändern
+function change_admin_password($user_id, $new_password) {
+    global $conn;
+    
+    // Passwort hashen
+    $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
+    
+    $stmt = $conn->prepare("UPDATE admin_users SET password = ? WHERE id = ?");
+    $stmt->bind_param("si", $hashed_password, $user_id);
+    
+    $result = $stmt->execute();
+    $stmt->close();
+    
+    return $result;
 }

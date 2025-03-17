@@ -16,6 +16,9 @@ if (isset($_GET['success'])) {
         case 'edited':
             $success_message = 'Anmeldung erfolgreich aktualisiert.';
             break;
+        case 'password_changed':
+            $success_message = 'Ihr Passwort wurde erfolgreich geändert.';
+            break;
     }
 }
 
@@ -83,14 +86,15 @@ foreach ($registrations as $reg) {
         </div>
         
         <nav class="admin-nav">
-            <ul>
-                <li><a href="dashboard.php" class="active">Dashboard</a></li>
-                <li><a href="export.php">Exportieren</a></li>
-                <?php if (is_admin()): // Nur Administratoren sehen den Menüpunkt ?>
-                <li><a href="users.php">Benutzerverwaltung</a></li>
-                <?php endif; ?>
-            </ul>
-        </nav>
+    <ul>
+        <li><a href="dashboard.php" class="active">Dashboard</a></li>
+        <li><a href="export.php">Exportieren</a></li>
+        <?php if (is_admin()): // Nur Administratoren sehen den Menüpunkt ?>
+        <li><a href="users.php">Benutzerverwaltung</a></li>
+        <?php endif; ?>
+        <li><a href="change_password.php">Passwort ändern</a></li>
+    </ul>
+</nav>
         
         <div class="admin-content">
             <?php if ($success_message): ?>

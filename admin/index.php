@@ -1,10 +1,27 @@
 <?php
+// Starte Output-Buffering um Probleme mit header() zu vermeiden
+ob_start();
+
+// Session starten falls noch nicht geschehen
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 require_once '../includes/auth.php';
+
+// Debug-Informationen in Error-Log schreiben
+error_log("Admin Login Page: Session ID: " . session_id());
+error_log("Admin Login Page: Session Status: " . (is_logged_in() ? "Logged in" : "Not logged in"));
 
 // Überprüfen, ob der Benutzer bereits eingeloggt ist
 if (is_logged_in()) {
-    // Direkte Weiterleitung zum Dashboard mit exit, um sicherzustellen, dass die Ausführung stoppt
+    error_log("User bereits eingeloggt, leite weiter zum Dashboard");
+    // Direkte Weiterleitung zum Dashboard
     header("Location: dashboard.php");
+    // JavaScript-Fallback für die Weiterleitung
+    echo "<script>window.location.href = 'dashboard.php';</script>";
+    // Ausgabepuffer leeren und beenden
+    ob_end_flush();
     exit;
 }
 
@@ -12,14 +29,22 @@ $error = '';
 
 // Überprüfen, ob das Formular abgeschickt wurde
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $username = $_POST['username'] ?? '';
-    $password = $_POST['password'] ?? '';
+    $username = isset($_POST['username']) ? trim($_POST['username']) : '';
+    $password = isset($_POST['password']) ? $_POST['password'] : '';
+    
+    error_log("Login-Versuch für Benutzername: " . $username);
     
     if (login($username, $password)) {
-        // Nach erfolgreichem Login direkt zum Dashboard weiterleiten mit exit
+        error_log("Login erfolgreich, leite weiter zum Dashboard");
+        // Nach erfolgreichem Login direkt zum Dashboard weiterleiten
         header("Location: dashboard.php");
+        // JavaScript-Fallback für die Weiterleitung
+        echo "<script>window.location.href = 'dashboard.php';</script>";
+        // Ausgabepuffer leeren und beenden
+        ob_end_flush();
         exit;
     } else {
+        error_log("Login fehlgeschlagen für Benutzername: " . $username);
         $error = "Ungültiger Benutzername oder Passwort";
     }
 }
@@ -63,3 +88,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     </div>
 </body>
 </html>
+<?php
+// Sicherstellen, dass der Ausgabepuffer geleert wird
+ob_end_flush();
+?>
