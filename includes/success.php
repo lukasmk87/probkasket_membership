@@ -1,12 +1,12 @@
 <?php
 require_once 'includes/functions.php';
 
-// ID aus der URL holen
+// Parameter aus URL holen
 $id = isset($_GET['id']) ? intval($_GET['id']) : 0;
 
 // Wenn keine gültige ID, zur Startseite umleiten
 if ($id <= 0) {
-    header("Location: index.php");
+    header("Location: index.html");
     exit;
 }
 
@@ -15,7 +15,7 @@ $registration = get_registration($id);
 
 // Wenn Anmeldung nicht gefunden, zur Startseite umleiten
 if (!$registration) {
-    header("Location: index.php");
+    header("Location: index.html");
     exit;
 }
 ?>
@@ -26,6 +26,7 @@ if (!$registration) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Anmeldung erfolgreich - Pro Basketball GT e.V.</title>
     <link rel="stylesheet" href="style.css">
+    <script src="js/darkmode.js"></script>
 </head>
 <body>
     <div class="container">
@@ -100,5 +101,74 @@ if (!$registration) {
             <p>mail: <a href="mailto:info@probasketballgt.de">info@probasketballgt.de</a> │ <a href="https://www.probasketballgt.de">www.probasketballgt.de</a></p>
         </footer>
     </div>
+
+    <style>
+    .registration-details {
+        background-color: var(--accent-gray);
+        padding: 20px;
+        border-radius: 8px;
+        margin: 20px 0;
+    }
+    
+    .detail-row {
+        display: flex;
+        margin-bottom: 10px;
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: 10px;
+    }
+    
+    .detail-row:last-child {
+        border-bottom: none;
+    }
+    
+    .detail-label {
+        font-weight: bold;
+        width: 140px;
+        color: var(--primary-color);
+    }
+    
+    .detail-value {
+        flex: 1;
+    }
+    
+    .success-message {
+        background-color: var(--background-secondary);
+        padding: 25px;
+        border-radius: 8px;
+        border-left: 4px solid var(--success-color);
+        margin: 20px 0;
+    }
+    
+    .button-container {
+        margin-top: 30px;
+        text-align: center;
+    }
+    
+    .btn-back {
+        display: inline-block;
+        padding: 12px 24px;
+        background-color: var(--primary-color);
+        color: white;
+        text-decoration: none;
+        border-radius: 6px;
+        font-weight: bold;
+        transition: background-color 0.3s;
+    }
+    
+    .btn-back:hover {
+        background-color: var(--primary-dark);
+    }
+    
+    @media (max-width: 768px) {
+        .detail-row {
+            flex-direction: column;
+        }
+        
+        .detail-label {
+            width: 100%;
+            margin-bottom: 5px;
+        }
+    }
+    </style>
 </body>
 </html>

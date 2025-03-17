@@ -1,6 +1,3 @@
-// ----------------------------------------
-// script.js - JavaScript für Formularvalidierung und Signatur
-// ----------------------------------------
 document.addEventListener("DOMContentLoaded", function() {
     // Aktuelles Datum als Standardwert setzen
     document.getElementById('date').valueAsDate = new Date();
@@ -49,6 +46,29 @@ document.addEventListener("DOMContentLoaded", function() {
     // Deaktivieren des benutzerdefinierten Betrags bei Start
     customBeitragValue.disabled = !customBeitragRadio.checked;
     
+    // IBAN-Formatierung für bessere Lesbarkeit
+    const ibanField = document.getElementById('iban');
+    ibanField.addEventListener('input', function(e) {
+        let value = e.target.value.replace(/\s+/g, ''); // Alle Leerzeichen entfernen
+        
+        // Nur Buchstaben und Ziffern erlauben
+        value = value.replace(/[^A-Z0-9]/gi, '');
+        
+        // In Großbuchstaben umwandeln
+        value = value.toUpperCase();
+        
+        // Formatierung hinzufügen (4er Gruppen)
+        let formattedValue = '';
+        for (let i = 0; i < value.length; i++) {
+            if (i > 0 && i % 4 === 0) {
+                formattedValue += ' ';
+            }
+            formattedValue += value[i];
+        }
+        
+        e.target.value = formattedValue;
+    });
+    
     // Form Validation und Abschicken
     window.validateAndSubmit = function() {
         let isValid = true;
@@ -66,7 +86,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 showError(field, 'Bitte geben Sie eine gültige E-Mail-Adresse ein');
                 isValid = false;
             } else if (field.id === 'iban' && !isValidIBAN(field.value)) {
-                showError(field, 'Bitte geben Sie eine gültige IBAN ein');
+                showError(field, 'Bitte geben Sie eine gültige IBAN ein (Format: DE + 20 Ziffern)');
                 isValid = false;
             }
         });
@@ -125,7 +145,23 @@ document.addEventListener("DOMContentLoaded", function() {
     }
     
     function isValidIBAN(iban) {
-        const ibanRegex = /^DE[0-9]{2}[0-9]{4}[0-9]{4}[0-9]{4}[0-9]{4}[0-9]{2}$/;
-        return ibanRegex.test(iban);
+        // Leerzeichen entfernen und Format prüfen
+        const cleanedIBAN = iban.replace(/\s+/g, '');
+        // Deutsche IBAN: DE + 20 Ziffern = 22 Zeichen
+        const ibanRegex = /^DE[0-9]{20}$/;
+        return ibanRegex.test(cleanedIBAN);
+    }
+    
+    // Nach Seitenladen auf Fehlermeldungen aus der Session prüfen
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('error')) {
+        const errorContainer = document.getElementById('error-container');
+        const errorMessage = document.getElementById('error-message');
+        
+        errorContainer.style.display = 'block';
+        errorMessage.innerHTML = decodeURIComponent(urlParams.get('error'));
+        
+        // Zum Fehlermeldungscontainer scrollen
+        errorContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 });

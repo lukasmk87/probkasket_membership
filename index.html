@@ -20,6 +20,11 @@
             </div>
         </header>
 
+        <!-- Fehleranzeige bei Formularfehlern -->
+        <div id="error-container" style="display: none;" class="error-message">
+            <p id="error-message"></p>
+        </div>
+
         <form id="membershipForm" action="includes/process.php" method="POST">
             <div class="form-intro">
                 <p>Hiermit erkläre ich meinen Beitrittswillen zum Verein „pro Basketball GT e.V."</p>
@@ -105,7 +110,7 @@
             <div class="form-row">
                 <div class="form-group">
                     <label for="iban">IBAN</label>
-                    <input type="text" id="iban" name="iban" required pattern="DE[0-9]{2}[0-9]{4}[0-9]{4}[0-9]{4}[0-9]{4}[0-9]{2}" title="Bitte geben Sie eine gültige IBAN ein">
+                    <input type="text" id="iban" name="iban" required pattern="DE[0-9]{2}[0-9]{4}[0-9]{4}[0-9]{4}[0-9]{4}[0-9]{2}" title="Bitte geben Sie eine gültige IBAN ein (Format: DE + 22 Ziffern)">
                 </div>
             </div>
 
@@ -148,6 +153,25 @@
             <p>mail: <a href="mailto:info@probasketballgt.de">info@probasketballgt.de</a> │ <a href="https://www.probasketballgt.de">www.probasketballgt.de</a></p>
         </footer>
     </div>
+    
     <script src="script.js"></script>
+    
+    <script>
+        // Prüfen, ob Fehlermeldungen aus der Session vorhanden sind
+        document.addEventListener("DOMContentLoaded", function() {
+            // Prüfen, ob URL-Parameter "error" existiert
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('error')) {
+                const errorContainer = document.getElementById('error-container');
+                const errorMessage = document.getElementById('error-message');
+                
+                errorContainer.style.display = 'block';
+                errorMessage.innerHTML = decodeURIComponent(urlParams.get('error'));
+                
+                // Zum Fehlermeldungscontainer scrollen
+                errorContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        });
+    </script>
 </body>
 </html>

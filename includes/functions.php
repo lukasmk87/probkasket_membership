@@ -9,48 +9,72 @@ function clean_input($data) {
     return $data;
 }
 
-// Funktion zum Speichern einer Anmeldung in der Datenbank
+// Verbesserte Funktion zum Speichern einer Anmeldung in der Datenbank
 function save_registration($data) {
     global $conn;
     
-    // Vorbereiten der Einfügeoperation
-    $stmt = $conn->prepare("INSERT INTO registrations (name, vorname, strasse, plz_ort, telefon, email, geburtsdatum, dsgvo, beteiligung, beitrag, beitrag_custom, iban, bank, signature_data, date_submitted) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
+    // Logging der Daten (ohne sensible Inhalte)
+    error_log("save_registration wurde aufgerufen mit Daten für: " . $data['vorname'] . " " . $data['name']);
     
-    // Bestimmen des tatsächlichen Beitrags
-    $beitrag = $data['beitrag'];
-    $beitrag_custom = null;
-    
-    if ($beitrag === 'custom' && !empty($data['beitrag_custom_value'])) {
-        $beitrag_custom = (float)$data['beitrag_custom_value'];
-    }
-    
-    // Binden der Parameter
-    $stmt->bind_param(
-        "ssssssssssdss",
-        $data['name'],
-        $data['vorname'],
-        $data['strasse'],
-        $data['plz_ort'],
-        $data['telefon'],
-        $data['email'],
-        $data['geburtsdatum'],
-        $data['dsgvo'],
-        $data['beteiligung'],
-        $data['beitrag'],
-        $beitrag_custom,
-        $data['iban'],
-        $data['bank'],
-        $data['signature_data']
-    );
-    
-    // Statement ausführen
-    if ($stmt->execute()) {
+    try {
+        // Vorbereiten der Einfügeoperation
+        $stmt = $conn->prepare("INSERT INTO registrations (name, vorname, strasse, plz_ort, telefon, email, geburtsdatum, dsgvo, beteiligung, beitrag, beitrag_custom, iban, bank, signature_data, date_submitted) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
+        
+        if (!$stmt) {
+            error_log("SQL-Vorbereitung fehlgeschlagen: " . $conn->error);
+            throw new Exception("Datenbankfehler bei Vorbereitung: " . $conn->error);
+        }
+        
+        // Bestimmen des tatsächlichen Beitrags
+        $beitrag = $data['beitrag'];
+        $beitrag_custom = null;
+        
+        if ($beitrag === 'custom' && !empty($data['beitrag_custom_value'])) {
+            $beitrag_custom = (float)$data['beitrag_custom_value'];
+        }
+        
+        // Binden der Parameter mit explizitem Datentyp-Handling
+        $bindResult = $stmt->bind_param(
+            "ssssssssssdss",
+            $data['name'],
+            $data['vorname'],
+            $data['strasse'],
+            $data['plz_ort'],
+            $data['telefon'],
+            $data['email'],
+            $data['geburtsdatum'],
+            $data['dsgvo'],
+            $data['beteiligung'],
+            $data['beitrag'],
+            $beitrag_custom,
+            $data['iban'],
+            $data['bank'],
+            $data['signature_data']
+        );
+        
+        if (!$bindResult) {
+            error_log("Parameter-Bindung fehlgeschlagen: " . $stmt->error);
+            throw new Exception("Datenbankfehler bei Parameter-Bindung: " . $stmt->error);
+        }
+        
+        // Statement ausführen
+        $executeResult = $stmt->execute();
+        
+        if (!$executeResult) {
+            error_log("SQL-Ausführung fehlgeschlagen: " . $stmt->error);
+            throw new Exception("Datenbankfehler bei Ausführung: " . $stmt->error);
+        }
+        
         $id = $conn->insert_id;
+        error_log("Datenbank-Eintrag erfolgreich erstellt mit ID: " . $id);
         $stmt->close();
         return $id;
-    } else {
-        $stmt->close();
-        return false;
+    } catch (Exception $e) {
+        error_log("Exception in save_registration: " . $e->getMessage());
+        if (isset($stmt)) {
+            $stmt->close();
+        }
+        throw $e; // Fehler weiterleiten
     }
 }
 
