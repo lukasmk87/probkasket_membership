@@ -70,16 +70,49 @@ function get_registration($id) {
     return $registration;
 }
 
-// Funktion zum Abrufen aller Anmeldungen
-function get_all_registrations() {
+// Funktion zum Abrufen aller Anmeldungen mit Filteroptionen
+function get_all_registrations($beteiligung = '', $search = '') {
     global $conn;
     
-    $result = $conn->query("SELECT * FROM registrations ORDER BY date_submitted DESC");
+    $sql = "SELECT * FROM registrations WHERE 1=1";
+    $params = [];
+    $types = "";
+    
+    // Filter nach Beteiligung
+    if (!empty($beteiligung)) {
+        $sql .= " AND beteiligung = ?";
+        $params[] = $beteiligung;
+        $types .= "s";
+    }
+    
+    // Suche nach Name, Vorname, E-Mail oder PLZ/Ort
+    if (!empty($search)) {
+        $sql .= " AND (name LIKE ? OR vorname LIKE ? OR email LIKE ? OR plz_ort LIKE ?)";
+        $searchTerm = "%$search%";
+        $params[] = $searchTerm;
+        $params[] = $searchTerm;
+        $params[] = $searchTerm;
+        $params[] = $searchTerm;
+        $types .= "ssss";
+    }
+    
+    $sql .= " ORDER BY date_submitted DESC";
+    
+    $stmt = $conn->prepare($sql);
+    
+    if (!empty($params)) {
+        $stmt->bind_param($types, ...$params);
+    }
+    
+    $stmt->execute();
+    $result = $stmt->get_result();
     
     $registrations = [];
     while ($row = $result->fetch_assoc()) {
         $registrations[] = $row;
     }
+    
+    $stmt->close();
     
     return $registrations;
 }
@@ -134,13 +167,46 @@ function delete_registration($id) {
     return $result;
 }
 
-// Funktion zum Exportieren von Anmeldungen als CSV
-function export_registrations_csv() {
+// Funktion zum Exportieren von Anmeldungen als CSV mit Filteroptionen
+function export_registrations_csv($beteiligung = '', $search = '') {
     global $conn;
     
-    $result = $conn->query("SELECT id, name, vorname, strasse, plz_ort, telefon, email, geburtsdatum, beteiligung, beitrag, beitrag_custom, iban, bank, date_submitted FROM registrations ORDER BY date_submitted DESC");
+    // Dieselbe Logik wie in get_all_registrations für konsistente Ergebnisse
+    $sql = "SELECT id, name, vorname, strasse, plz_ort, telefon, email, geburtsdatum, beteiligung, beitrag, beitrag_custom, iban, bank, date_submitted FROM registrations WHERE 1=1";
+    $params = [];
+    $types = "";
+    
+    if (!empty($beteiligung)) {
+        $sql .= " AND beteiligung = ?";
+        $params[] = $beteiligung;
+        $types .= "s";
+    }
+    
+    if (!empty($search)) {
+        $sql .= " AND (name LIKE ? OR vorname LIKE ? OR email LIKE ? OR plz_ort LIKE ?)";
+        $searchTerm = "%$search%";
+        $params[] = $searchTerm;
+        $params[] = $searchTerm;
+        $params[] = $searchTerm;
+        $params[] = $searchTerm;
+        $types .= "ssss";
+    }
+    
+    $sql .= " ORDER BY date_submitted DESC";
+    
+    $stmt = $conn->prepare($sql);
+    
+    if (!empty($params)) {
+        $stmt->bind_param($types, ...$params);
+    }
+    
+    $stmt->execute();
+    $result = $stmt->get_result();
     
     $output = fopen('php://output', 'w');
+    
+    // UTF-8 BOM für Excel-Kompatibilität
+    fputs($output, "\xEF\xBB\xBF");
     
     // Setzen der CSV-Header
     fputcsv($output, [
@@ -154,6 +220,7 @@ function export_registrations_csv() {
     }
     
     fclose($output);
+    $stmt->close();
 }
 
 // Funktion zum Senden einer Bestätigungsmail
@@ -218,5 +285,68 @@ function send_confirmation_email($data) {
     
     // E-Mail senden
     return mail($to, $subject, $message, $headers);
+}
+
+// Funktion zum Abrufen von Statistiken
+function get_registration_statistics() {
+    global $conn;
+    
+    $stats = [
+        'total' => 0,
+        'active' => 0,
+        'passive' => 0,
+        'total_revenue' => 0,
+        'newest_date' => null,
+        'newest_member' => null
+    ];
+    
+    // Gesamtzahl, aktive und passive Mitglieder
+    $result = $conn->query("
+        SELECT 
+            COUNT(*) as total,
+            SUM(CASE WHEN beteiligung = 'aktiv' THEN 1 ELSE 0 END) as active,
+            SUM(CASE WHEN beteiligung = 'passiv' THEN 1 ELSE 0 END) as passive
+        FROM registrations
+    ");
+    
+    if ($row = $result->fetch_assoc()) {
+        $stats['total'] = (int)$row['total'];
+        $stats['active'] = (int)$row['active'];
+        $stats['passive'] = (int)$row['passive'];
+    }
+    
+    // Gesamtbeiträge berechnen
+    $result = $conn->query("
+        SELECT 
+            SUM(CASE 
+                WHEN beitrag = '10' THEN 10 
+                WHEN beitrag = '30' THEN 30 
+                ELSE beitrag_custom 
+            END) as total_revenue
+        FROM registrations
+    ");
+    
+    if ($row = $result->fetch_assoc()) {
+        $stats['total_revenue'] = $row['total_revenue'] ? (float)$row['total_revenue'] : 0;
+    }
+    
+    // Neuestes Mitglied
+    $result = $conn->query("
+        SELECT id, name, vorname, date_submitted
+        FROM registrations 
+        ORDER BY date_submitted DESC 
+        LIMIT 1
+    ");
+    
+    if ($row = $result->fetch_assoc()) {
+        $stats['newest_date'] = $row['date_submitted'];
+        $stats['newest_member'] = [
+            'id' => $row['id'],
+            'name' => $row['name'],
+            'vorname' => $row['vorname']
+        ];
+    }
+    
+    return $stats;
 }
 ?>
