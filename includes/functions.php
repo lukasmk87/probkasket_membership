@@ -34,24 +34,23 @@ function save_registration($data) {
         }
         
         // Binden der Parameter mit explizitem Datentyp-Handling
-        $bindResult = $stmt->bind_param(
-            "ssssssssssdss",
-            $data['name'],
-            $data['vorname'],
-            $data['strasse'],
-            $data['plz_ort'],
-            $data['telefon'],
-            $data['email'],
-            $data['geburtsdatum'],
-            $data['dsgvo'],
-            $data['beteiligung'],
-            $data['beitrag'],
-            $beitrag_custom,
-            $data['iban'],
-            $data['bank'],
-            $data['signature_data']
-        );
-        
+		$bindResult = $stmt->bind_param(
+			"ssssssssssdsss",  // Added one more 's' for signature_data
+			$data['name'],
+			$data['vorname'],
+			$data['strasse'],
+			$data['plz_ort'],
+			$data['telefon'],
+			$data['email'],
+			$data['geburtsdatum'],
+			$data['dsgvo'],
+			$data['beteiligung'],
+			$data['beitrag'],
+			$beitrag_custom,
+			$data['iban'],
+			$data['bank'],
+			$data['signature_data']
+		);        
         if (!$bindResult) {
             error_log("Parameter-Bindung fehlgeschlagen: " . $stmt->error);
             throw new Exception("Datenbankfehler bei Parameter-Bindung: " . $stmt->error);
@@ -182,13 +181,51 @@ function update_registration($id, $data) {
 function delete_registration($id) {
     global $conn;
     
-    $stmt = $conn->prepare("DELETE FROM registrations WHERE id = ?");
-    $stmt->bind_param("i", $id);
-    
-    $result = $stmt->execute();
-    $stmt->close();
-    
-    return $result;
+    try {
+        // Verify the connection is still good
+        if ($conn->ping() === false) {
+            error_log("Database connection lost. Reconnecting...");
+            $conn = new mysqli($db_host, $db_user, $db_pass, $db_name);
+            $conn->set_charset("utf8");
+        }
+        
+        $stmt = $conn->prepare("DELETE FROM registrations WHERE id = ?");
+        
+        if (!$stmt) {
+            error_log("SQL-Vorbereitung fehlgeschlagen: " . $conn->error);
+            throw new Exception("Datenbankfehler bei Vorbereitung: " . $conn->error);
+        }
+        
+        $bindResult = $stmt->bind_param("i", $id);
+        
+        if (!$bindResult) {
+            error_log("Parameter-Bindung fehlgeschlagen: " . $stmt->error);
+            $stmt->close();
+            throw new Exception("Datenbankfehler bei Parameter-Bindung: " . $stmt->error);
+        }
+        
+        $executeResult = $stmt->execute();
+        
+        if (!$executeResult) {
+            error_log("SQL-Ausführung fehlgeschlagen: " . $stmt->error);
+            $stmt->close();
+            throw new Exception("Datenbankfehler bei Ausführung: " . $stmt->error);
+        }
+        
+        $affected = $stmt->affected_rows;
+        error_log("delete_registration: Affected rows: " . $affected);
+        
+        $stmt->close();
+        
+        // Return true if at least one row was affected
+        return $affected > 0;
+    } catch (Exception $e) {
+        error_log("Exception in delete_registration: " . $e->getMessage());
+        if (isset($stmt) && $stmt) {
+            $stmt->close();
+        }
+        throw $e; // Fehler weiterleiten
+    }
 }
 
 // Funktion zum Exportieren von Anmeldungen als CSV mit Filteroptionen
