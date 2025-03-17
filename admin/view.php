@@ -113,6 +113,7 @@ if (!$registration) {
             <div class="admin-actions" style="margin-top: 30px;">
                 <a href="edit.php?id=<?php echo $registration['id']; ?>" class="btn-edit">Bearbeiten</a>
                 <a href="export_pdf.php?id=<?php echo $registration['id']; ?>" class="btn-export" target="_blank">Als PDF exportieren</a>
+				<a href="pdf_standalone.php?id=<?php echo $registration['id']; ?>" class="btn-export">Als PDF exportieren_Standalone</a>
                 <a href="delete.php?id=<?php echo $registration['id']; ?>&csrf=<?php echo generate_csrf_token(); ?>" class="btn-delete" onclick="return confirm('Sind Sie sicher, dass Sie diese Anmeldung löschen möchten?');">Löschen</a>
                 <a href="dashboard.php" class="btn-reset">Zurück</a>
             </div>

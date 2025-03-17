@@ -513,11 +513,16 @@ function export_registration_as_pdf($id) {
     
     // Prüfen, ob Anmeldung existiert
     if (!$registration) {
-        return false;
+        throw new Exception("Anmeldung mit ID $id nicht gefunden.");
     }
     
-    // TCPDF-Bibliothek einbinden
-    require_once('tcpdf/tcpdf.php');
+    // TCPDF-Bibliothek einbinden (manuelle Installation)
+    $tcpdf_path = __DIR__ . '/../tcpdf/tcpdf.php';
+    if (!file_exists($tcpdf_path)) {
+        throw new Exception("TCPDF-Bibliothek nicht gefunden unter: $tcpdf_path");
+    }
+    
+    require_once($tcpdf_path);
     
     // Neue PDF-Instanz erstellen
     $pdf = new TCPDF('P', 'mm', 'A4', true, 'UTF-8', false);
@@ -542,8 +547,16 @@ function export_registration_as_pdf($id) {
     $pdf->AddPage();
     
     // Logo einfügen, falls vorhanden
-    if (file_exists('../assets/logo.png')) {
-        $pdf->Image('../assets/logo.png', 15, 15, 40, 0, 'PNG');
+    $logo_path = __DIR__ . '/../assets/logo.png';
+    if (file_exists($logo_path)) {
+        try {
+            $pdf->Image($logo_path, 15, 15, 40, 0, 'PNG');
+        } catch (Exception $e) {
+            // Falls Logo nicht geladen werden kann, Fehler protokollieren aber fortfahren
+            error_log("PDF-Export: Logo konnte nicht geladen werden: " . $e->getMessage());
+        }
+    } else {
+        error_log("PDF-Export: Logo nicht gefunden unter: $logo_path");
     }
     
     // Überschrift
@@ -637,24 +650,42 @@ function export_registration_as_pdf($id) {
     
     // Unterschriftsbild einfügen, falls vorhanden
     if (!empty($registration['signature_data'])) {
-        // Unterschrift aus Base64-Daten extrahieren
-        $signature_img = $registration['signature_data'];
-        
-        // Wenn es ein Daten-URI ist, die tatsächlichen Daten extrahieren
-        if (strpos($signature_img, 'data:image') !== false) {
-            $signature_parts = explode(',', $signature_img, 2);
-            $signature_data = base64_decode($signature_parts[1]);
+        try {
+            // Unterschrift aus Base64-Daten extrahieren
+            $signature_img = $registration['signature_data'];
             
-            // Temporäre Datei für die Unterschrift erstellen
-            $temp_sig_file = tempnam(sys_get_temp_dir(), 'sig');
-            file_put_contents($temp_sig_file, $signature_data);
-            
-            // Unterschrift in PDF einfügen
-            $pdf->Image($temp_sig_file, 15, $pdf->GetY(), 80, 0, 'PNG');
-            
-            // Temporäre Datei löschen
-            unlink($temp_sig_file);
+            // Wenn es ein Daten-URI ist, die tatsächlichen Daten extrahieren
+            if (strpos($signature_img, 'data:image') !== false) {
+                $signature_parts = explode(',', $signature_img, 2);
+                $signature_data = base64_decode($signature_parts[1]);
+                
+                // Alternativ temporäres Verzeichnis im Projektordner versuchen, falls sys_get_temp_dir() nicht funktioniert
+                $temp_dir = is_writable(sys_get_temp_dir()) ? sys_get_temp_dir() : __DIR__ . '/../tmp';
+                
+                // Verzeichnis erstellen falls nicht vorhanden
+                if (!file_exists($temp_dir) && $temp_dir === __DIR__ . '/../tmp') {
+                    mkdir($temp_dir, 0755, true);
+                }
+                
+                // Temporäre Datei für die Unterschrift erstellen
+                $temp_sig_file = tempnam($temp_dir, 'sig');
+                file_put_contents($temp_sig_file, $signature_data);
+                
+                // Unterschrift in PDF einfügen
+                $pdf->Image($temp_sig_file, 15, $pdf->GetY(), 80, 0, 'PNG');
+                
+                // Temporäre Datei löschen
+                unlink($temp_sig_file);
+            } else {
+                $pdf->MultiCell(0, 8, "[Unterschrift konnte nicht dargestellt werden]", 0, 'L');
+                error_log("PDF-Export: Unterschriftsdaten haben nicht das erwartete Format");
+            }
+        } catch (Exception $e) {
+            $pdf->MultiCell(0, 8, "[Fehler bei der Darstellung der Unterschrift]", 0, 'L');
+            error_log("PDF-Export: Fehler bei der Verarbeitung der Unterschrift: " . $e->getMessage());
         }
+    } else {
+        $pdf->MultiCell(0, 8, "[Keine Unterschrift vorhanden]", 0, 'L');
     }
     
     // Unterschriftsdatum
@@ -675,10 +706,19 @@ function export_registration_as_pdf($id) {
     $pdf->Cell(0, 5, 'E-Mail: info@probasketballgt.de - Web: www.probasketballgt.de', 0, 1, 'C');
     $pdf->Cell(0, 5, 'Bankverbindung: Volksbank Gütersloh, IBAN: DE31478601250585471800, BIC: GENODEM1GTL', 0, 1, 'C');
     
-    // PDF ausgeben
-    $filename = 'Beitrittserklärung_' . $registration['name'] . '_' . $registration['vorname'] . '.pdf';
-    $pdf->Output($filename, 'D');
+    // Eindeutigen Dateinamen generieren
+    $filename = 'Beitrittserklärung_' . 
+               preg_replace('/[^a-zA-Z0-9]/', '_', $registration['name']) . '_' . 
+               preg_replace('/[^a-zA-Z0-9]/', '_', $registration['vorname']) . '_' . 
+               date('Ymd') . '.pdf';
     
-    return true;
+    // PDF ausgeben
+    try {
+        $pdf->Output($filename, 'D'); // 'D' bedeutet Download erzwingen
+        return true;
+    } catch (Exception $e) {
+        error_log("PDF-Export: Fehler beim Ausgeben des PDFs: " . $e->getMessage());
+        throw new Exception("Fehler beim Erzeugen des PDFs: " . $e->getMessage());
+    }
 }
 ?>
