@@ -504,5 +504,181 @@ function send_admin_notification_email($data) {
     // E-Mail senden
     return mail($to, $subject, $message, $headers);
 }
-
+// Funktion zum Exportieren einer Anmeldung als PDF
+function export_registration_as_pdf($id) {
+    global $conn;
+    
+    // Anmeldung aus der Datenbank holen
+    $registration = get_registration($id);
+    
+    // Prüfen, ob Anmeldung existiert
+    if (!$registration) {
+        return false;
+    }
+    
+    // TCPDF-Bibliothek einbinden
+    require_once('tcpdf/tcpdf.php');
+    
+    // Neue PDF-Instanz erstellen
+    $pdf = new TCPDF('P', 'mm', 'A4', true, 'UTF-8', false);
+    
+    // PDF-Metadaten setzen
+    $pdf->SetCreator('Pro Basketball GT e.V.');
+    $pdf->SetAuthor('Pro Basketball GT e.V.');
+    $pdf->SetTitle('Mitgliedsantrag ' . $registration['vorname'] . ' ' . $registration['name']);
+    $pdf->SetSubject('Beitrittserklärung Pro Basketball GT e.V.');
+    
+    // Header und Footer deaktivieren
+    $pdf->setPrintHeader(false);
+    $pdf->setPrintFooter(false);
+    
+    // Standard-Schriftart setzen
+    $pdf->SetFont('helvetica', '', 12);
+    
+    // Seitenränder anpassen
+    $pdf->SetMargins(15, 15, 15);
+    
+    // Neue Seite hinzufügen
+    $pdf->AddPage();
+    
+    // Logo einfügen, falls vorhanden
+    if (file_exists('../assets/logo.png')) {
+        $pdf->Image('../assets/logo.png', 15, 15, 40, 0, 'PNG');
+    }
+    
+    // Überschrift
+    $pdf->SetFont('helvetica', 'B', 16);
+    $pdf->Cell(0, 20, 'Beitrittserklärung Pro Basketball GT e.V.', 0, 1, 'C');
+    $pdf->Ln(5);
+    
+    // Vereinsinformationen
+    $pdf->SetFont('helvetica', '', 10);
+    $pdf->Cell(0, 5, 'Pro Basketball GT e.V.', 0, 1, 'R');
+    $pdf->Cell(0, 5, 'Pavenstädter Weg 35', 0, 1, 'R');
+    $pdf->Cell(0, 5, '33334 Gütersloh', 0, 1, 'R');
+    $pdf->Ln(10);
+    
+    // Einleitung
+    $pdf->SetFont('helvetica', 'B', 12);
+    $pdf->Cell(0, 8, 'Hiermit erkläre ich meinen Beitrittswillen zum Verein „pro Basketball GT e.V."', 0, 1, 'L');
+    $pdf->Ln(5);
+    
+    // Persönliche Daten
+    $pdf->SetFont('helvetica', 'B', 12);
+    $pdf->Cell(0, 8, 'Persönliche Daten:', 0, 1, 'L');
+    $pdf->SetFont('helvetica', '', 11);
+    
+    // Tabelle erstellen für persönliche Daten
+    $pdf->SetFillColor(240, 240, 240);
+    $pdf->Cell(50, 8, 'Name:', 1, 0, 'L', true);
+    $pdf->Cell(125, 8, $registration['vorname'] . ' ' . $registration['name'], 1, 1, 'L');
+    
+    $pdf->Cell(50, 8, 'Adresse:', 1, 0, 'L', true);
+    $pdf->Cell(125, 8, $registration['strasse'] . ', ' . $registration['plz_ort'], 1, 1, 'L');
+    
+    $pdf->Cell(50, 8, 'Telefon:', 1, 0, 'L', true);
+    $pdf->Cell(125, 8, $registration['telefon'], 1, 1, 'L');
+    
+    $pdf->Cell(50, 8, 'E-Mail:', 1, 0, 'L', true);
+    $pdf->Cell(125, 8, $registration['email'], 1, 1, 'L');
+    
+    $pdf->Cell(50, 8, 'Geburtsdatum:', 1, 0, 'L', true);
+    $pdf->Cell(125, 8, $registration['geburtsdatum'], 1, 1, 'L');
+    $pdf->Ln(5);
+    
+    // Beteiligung
+    $pdf->SetFont('helvetica', 'B', 12);
+    $pdf->Cell(0, 8, 'Beteiligung:', 0, 1, 'L');
+    $pdf->SetFont('helvetica', '', 11);
+    
+    $beteiligung = $registration['beteiligung'] == 'aktiv' ? 
+        'Aktive Beteiligung: Ich möchte mich aktiv im Verein beteiligen.' : 
+        'Passive Unterstützung: Ich unterstütze den Verein, eine aktive Beteiligung wird mir nicht möglich sein.';
+    
+    $pdf->MultiCell(0, 8, $beteiligung, 0, 'L');
+    $pdf->Ln(5);
+    
+    // Beitrag
+    $pdf->SetFont('helvetica', 'B', 12);
+    $pdf->Cell(0, 8, 'Mitgliedsbeitrag:', 0, 1, 'L');
+    $pdf->SetFont('helvetica', '', 11);
+    
+    $beitrag = '';
+    if ($registration['beitrag'] == '10') {
+        $beitrag = '10 € (Mindestbeitrag)';
+    } elseif ($registration['beitrag'] == '30') {
+        $beitrag = '30 €';
+    } else {
+        $beitrag = $registration['beitrag_custom'] . ' €';
+    }
+    
+    $pdf->Cell(50, 8, 'Jährlicher Beitrag:', 1, 0, 'L', true);
+    $pdf->Cell(125, 8, $beitrag, 1, 1, 'L');
+    $pdf->Ln(5);
+    
+    // Bankdaten
+    $pdf->SetFont('helvetica', 'B', 12);
+    $pdf->Cell(0, 8, 'Einzugsermächtigung:', 0, 1, 'L');
+    $pdf->SetFont('helvetica', '', 11);
+    
+    $pdf->MultiCell(0, 8, 'Hiermit ermächtige ich den Verein „pro Basketball GT e.V." bis auf Widerruf, den oben genannten Jahres-Mitgliedsbeitrag von folgendem Konto abzubuchen:', 0, 'L');
+    $pdf->Ln(3);
+    
+    $pdf->Cell(50, 8, 'IBAN:', 1, 0, 'L', true);
+    $pdf->Cell(125, 8, $registration['iban'], 1, 1, 'L');
+    
+    $pdf->Cell(50, 8, 'Bank:', 1, 0, 'L', true);
+    $pdf->Cell(125, 8, $registration['bank'], 1, 1, 'L');
+    $pdf->Ln(10);
+    
+    // Unterschrift
+    $pdf->SetFont('helvetica', 'B', 12);
+    $pdf->Cell(0, 8, 'Unterschrift:', 0, 1, 'L');
+    
+    // Unterschriftsbild einfügen, falls vorhanden
+    if (!empty($registration['signature_data'])) {
+        // Unterschrift aus Base64-Daten extrahieren
+        $signature_img = $registration['signature_data'];
+        
+        // Wenn es ein Daten-URI ist, die tatsächlichen Daten extrahieren
+        if (strpos($signature_img, 'data:image') !== false) {
+            $signature_parts = explode(',', $signature_img, 2);
+            $signature_data = base64_decode($signature_parts[1]);
+            
+            // Temporäre Datei für die Unterschrift erstellen
+            $temp_sig_file = tempnam(sys_get_temp_dir(), 'sig');
+            file_put_contents($temp_sig_file, $signature_data);
+            
+            // Unterschrift in PDF einfügen
+            $pdf->Image($temp_sig_file, 15, $pdf->GetY(), 80, 0, 'PNG');
+            
+            // Temporäre Datei löschen
+            unlink($temp_sig_file);
+        }
+    }
+    
+    // Unterschriftsdatum
+    $pdf->Ln(30); // Platz für die Signatur
+    $pdf->SetFont('helvetica', '', 11);
+    $pdf->Cell(50, 8, 'Datum:', 1, 0, 'L', true);
+    $pdf->Cell(125, 8, $registration['date'], 1, 1, 'L');
+    
+    // Datenschutzhinweis
+    $pdf->Ln(10);
+    $pdf->SetFont('helvetica', 'I', 10);
+    $pdf->MultiCell(0, 5, 'Hinweis: Der Unterzeichner hat den Datenschutzbestimmungen des Vereins „pro Basketball GT e.V." zugestimmt.', 0, 'L');
+    
+    // Fußzeile
+    $pdf->Ln(15);
+    $pdf->SetFont('helvetica', 'I', 8);
+    $pdf->Cell(0, 5, 'Pro Basketball GT e.V. - Pavenstädter Weg 35 - 33334 Gütersloh', 0, 1, 'C');
+    $pdf->Cell(0, 5, 'E-Mail: info@probasketballgt.de - Web: www.probasketballgt.de', 0, 1, 'C');
+    $pdf->Cell(0, 5, 'Bankverbindung: Volksbank Gütersloh, IBAN: DE31478601250585471800, BIC: GENODEM1GTL', 0, 1, 'C');
+    
+    // PDF ausgeben
+    $filename = 'Beitrittserklärung_' . $registration['name'] . '_' . $registration['vorname'] . '.pdf';
+    $pdf->Output($filename, 'D');
+    
+    return true;
+}
 ?>
