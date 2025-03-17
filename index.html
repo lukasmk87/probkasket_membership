@@ -1,0 +1,155 @@
+// ----------------------------------------
+// index.html - Hauptseite mit Anmeldeformular
+// ----------------------------------------
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beitrittserklärung - Pro Basketball GT e.V.</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <img src="assets/logo.png" alt="Pro Basketball GT e.V. Logo" class="logo">
+            <h1>Beitrittserklärung</h1>
+            <div class="contact-info">
+                <p>Pro Basketball GT e.V.</p>
+                <p>Pavenstädter Weg 35</p>
+                <p>33334 Gütersloh</p>
+            </div>
+        </header>
+
+        <form id="membershipForm" action="includes/process.php" method="POST">
+            <div class="form-intro">
+                <p>Hiermit erkläre ich meinen Beitrittswillen zum Verein „pro Basketball GT e.V."</p>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="name">Name</label>
+                    <input type="text" id="name" name="name" required>
+                </div>
+                <div class="form-group">
+                    <label for="vorname">Vorname</label>
+                    <input type="text" id="vorname" name="vorname" required>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="strasse">Straße</label>
+                    <input type="text" id="strasse" name="strasse" required>
+                </div>
+                <div class="form-group">
+                    <label for="plz_ort">PLZ / Ort</label>
+                    <input type="text" id="plz_ort" name="plz_ort" required>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="telefon">Telefon</label>
+                    <input type="tel" id="telefon" name="telefon" required>
+                </div>
+                <div class="form-group">
+                    <label for="email">E-Mail</label>
+                    <input type="email" id="email" name="email" required>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="geburtsdatum">Geburtsdatum</label>
+                    <input type="date" id="geburtsdatum" name="geburtsdatum" required>
+                </div>
+            </div>
+
+            <div class="form-group checkbox-group">
+                <input type="checkbox" id="dsgvo" name="dsgvo" required>
+                <label for="dsgvo">Die Informationspflichten nach Art. 13 und 14 DSGVO habe ich gelesen und zur Kenntnis genommen</label>
+                <a href="datenschutz.html" target="_blank" class="link-datenschutz">Datenschutzerklärung anzeigen</a>
+            </div>
+
+            <h3>Beteiligung (bitte das zutreffende Kästchen ankreuzen)</h3>
+            <div class="form-group radio-group">
+                <div class="radio-option">
+                    <input type="radio" id="aktiv" name="beteiligung" value="aktiv" required>
+                    <label for="aktiv">Ich möchte mich aktiv im Verein beteiligen und zusätzliche zur Mitgliederversammlung zu unterjährig stattfindenden Treffen und an der Kommunikation via Chat eingeladen werden</label>
+                </div>
+                <div class="radio-option">
+                    <input type="radio" id="passiv" name="beteiligung" value="passiv">
+                    <label for="passiv">Ich freue mich, den Verein als Mitglied zu unterstützen, eine aktive Beteiligung wird mir leider nicht möglich sein. Daher verzichte ich auf Einladungen zu unterjährig stattfindenden Treffen.</label>
+                </div>
+            </div>
+
+            <h3>Einzugsermächtigung</h3>
+            <p>Hiermit ermächtige ich den Verein „pro Basketball GT e.V." bis auf Widerruf einen Jahres-Mitgliedsbeitrag in Höhe von</p>
+            
+            <div class="form-group radio-group">
+                <div class="radio-option">
+                    <input type="radio" id="beitrag_10" name="beitrag" value="10" required>
+                    <label for="beitrag_10">10 € (Mindestbeitrag)</label>
+                </div>
+                <div class="radio-option">
+                    <input type="radio" id="beitrag_30" name="beitrag" value="30">
+                    <label for="beitrag_30">30 €</label>
+                </div>
+                <div class="radio-option custom-amount">
+                    <input type="radio" id="beitrag_custom" name="beitrag" value="custom">
+                    <input type="number" id="beitrag_custom_value" name="beitrag_custom_value" min="10" placeholder="Eigener Betrag">
+                    <span>€</span>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="iban">IBAN</label>
+                    <input type="text" id="iban" name="iban" required pattern="DE[0-9]{2}[0-9]{4}[0-9]{4}[0-9]{4}[0-9]{4}[0-9]{2}" title="Bitte geben Sie eine gültige IBAN ein">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="bank">Name des Kreditinstituts</label>
+                    <input type="text" id="bank" name="bank" required>
+                </div>
+            </div>
+
+            <p class="bank-info">Die Abbuchung erfolgt jeweils in der zweiten Jahreshälfte. Beim Austritt aus dem Verein erlischt die Einzugsermächtigung automatisch.</p>
+
+            <div class="signature-section">
+                <p>Mit Ihrer elektronischen Unterschrift bestätigen Sie die Richtigkeit Ihrer Angaben und Ihren Beitritt zum Verein.</p>
+                <div class="signature-container">
+                    <canvas id="signature-pad" class="signature-pad"></canvas>
+                </div>
+                <div class="signature-buttons">
+                    <button type="button" id="clear-signature">Unterschrift löschen</button>
+                </div>
+                <input type="hidden" id="signature-data" name="signature_data">
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="date">Datum</label>
+                    <input type="date" id="date" name="date" required value="">
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="button" onclick="validateAndSubmit()" class="btn-submit">Beitrittserklärung absenden</button>
+                <button type="reset" class="btn-reset">Zurücksetzen</button>
+            </div>
+        </form>
+
+        <footer>
+            <p>1. Vorsitzender Ole Ahnepohl, 2. Vorsitzende Saskia Kramer, Kassenwart Maria Teresa Moreno Arco</p>
+            <p>Bankverbindung: Volksbank Gütersloh, IBAN: DE31478601250585471800 , BIC: GENODEM1GTL</p>
+            <p>mail: <a href="mailto:info@probasketballgt.de">info@probasketballgt.de</a> │ <a href="https://www.probasketballgt.de">www.probasketballgt.de</a></p>
+        </footer>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
