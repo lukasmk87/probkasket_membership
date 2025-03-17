@@ -1,12 +1,21 @@
 <?php
+// Output-Buffering starten, um Probleme mit Weiterleitungen zu vermeiden
+ob_start();
+
 require_once 'includes/functions.php';
 
-// Parameter aus URL holen
+// ID aus der URL holen
 $id = isset($_GET['id']) ? intval($_GET['id']) : 0;
+
+// Debug-Log
+error_log("Success Seite aufgerufen mit ID: " . $id);
 
 // Wenn keine gültige ID, zur Startseite umleiten
 if ($id <= 0) {
+    error_log("Ungültige ID, Weiterleitung zur Startseite");
     header("Location: index.html");
+    echo "<script>window.location.href = 'index.html';</script>";
+    ob_end_flush();
     exit;
 }
 
@@ -15,9 +24,15 @@ $registration = get_registration($id);
 
 // Wenn Anmeldung nicht gefunden, zur Startseite umleiten
 if (!$registration) {
+    error_log("Anmeldung mit ID " . $id . " nicht gefunden, Weiterleitung zur Startseite");
     header("Location: index.html");
+    echo "<script>window.location.href = 'index.html';</script>";
+    ob_end_flush();
     exit;
 }
+
+// Debug-Log
+error_log("Anmeldung gefunden: " . $registration['vorname'] . " " . $registration['name']);
 ?>
 <!DOCTYPE html>
 <html lang="de">
@@ -170,5 +185,25 @@ if (!$registration) {
         }
     }
     </style>
+    
+    <!-- JavaScript für Tracking der erfolgreichen Anmeldung -->
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Bestätigungsmeldung in der Konsole ausgeben
+        console.log('Anmeldung erfolgreich mit ID: <?php echo $id; ?>');
+        
+        // Optional: Event für Erfolg auslösen, falls Analytics-Tracking vorhanden ist
+        if (typeof window.dataLayer !== 'undefined') {
+            window.dataLayer.push({
+                'event': 'formSubmissionSuccess',
+                'formType': 'membership'
+            });
+        }
+    });
+    </script>
 </body>
 </html>
+<?php
+// Buffer leeren
+ob_end_flush();
+?>

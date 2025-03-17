@@ -410,4 +410,99 @@ function get_registration_statistics() {
     
     return $stats;
 }
+// Funktion zum Senden einer Benachrichtigungsmail an den Administrator
+function send_admin_notification_email($data) {
+    // Konstante für die Admin-E-Mail aus config.php verwenden, falls vorhanden
+    $to = defined('ADMIN_EMAIL') ? ADMIN_EMAIL : 'info@probasketballgt.de';
+    $subject = "Neue Vereinsanmeldung: " . $data['vorname'] . " " . $data['name'];
+    
+    $message = "
+    <html>
+    <head>
+        <title>Neue Vereinsanmeldung</title>
+    </head>
+    <body>
+        <h2>Neue Vereinsanmeldung eingegangen</h2>
+        <p>Ein neues Mitglied hat sich bei Pro Basketball GT e.V. angemeldet:</p>
+        
+        <h3>Mitgliedsdaten:</h3>
+        <table style='border-collapse: collapse; width: 100%;'>
+            <tr>
+                <th style='text-align: left; padding: 8px; border: 1px solid #ddd; background-color: #f2f2f2;'>Feld</th>
+                <th style='text-align: left; padding: 8px; border: 1px solid #ddd; background-color: #f2f2f2;'>Wert</th>
+            </tr>
+            <tr>
+                <td style='padding: 8px; border: 1px solid #ddd;'><strong>Name</strong></td>
+                <td style='padding: 8px; border: 1px solid #ddd;'>{$data['vorname']} {$data['name']}</td>
+            </tr>
+            <tr>
+                <td style='padding: 8px; border: 1px solid #ddd;'><strong>Adresse</strong></td>
+                <td style='padding: 8px; border: 1px solid #ddd;'>{$data['strasse']}, {$data['plz_ort']}</td>
+            </tr>
+            <tr>
+                <td style='padding: 8px; border: 1px solid #ddd;'><strong>Telefon</strong></td>
+                <td style='padding: 8px; border: 1px solid #ddd;'>{$data['telefon']}</td>
+            </tr>
+            <tr>
+                <td style='padding: 8px; border: 1px solid #ddd;'><strong>E-Mail</strong></td>
+                <td style='padding: 8px; border: 1px solid #ddd;'>{$data['email']}</td>
+            </tr>
+            <tr>
+                <td style='padding: 8px; border: 1px solid #ddd;'><strong>Geburtsdatum</strong></td>
+                <td style='padding: 8px; border: 1px solid #ddd;'>{$data['geburtsdatum']}</td>
+            </tr>
+            <tr>
+                <td style='padding: 8px; border: 1px solid #ddd;'><strong>Beteiligung</strong></td>
+                <td style='padding: 8px; border: 1px solid #ddd;'>" . ($data['beteiligung'] == 'aktiv' ? 'Aktive Beteiligung' : 'Passive Unterstützung') . "</td>
+            </tr>
+            <tr>
+                <td style='padding: 8px; border: 1px solid #ddd;'><strong>Mitgliedsbeitrag</strong></td>
+                <td style='padding: 8px; border: 1px solid #ddd;'>";
+    
+    // Beitrag anzeigen
+    if ($data['beitrag'] == '10') {
+        $message .= "10 € (Mindestbeitrag)";
+    } elseif ($data['beitrag'] == '30') {
+        $message .= "30 €";
+    } else {
+        $message .= "{$data['beitrag_custom_value']} €";
+    }
+    
+    $message .= "</td>
+            </tr>
+            <tr>
+                <td style='padding: 8px; border: 1px solid #ddd;'><strong>IBAN</strong></td>
+                <td style='padding: 8px; border: 1px solid #ddd;'>{$data['iban']}</td>
+            </tr>
+            <tr>
+                <td style='padding: 8px; border: 1px solid #ddd;'><strong>Bank</strong></td>
+                <td style='padding: 8px; border: 1px solid #ddd;'>{$data['bank']}</td>
+            </tr>
+            <tr>
+                <td style='padding: 8px; border: 1px solid #ddd;'><strong>Datum</strong></td>
+                <td style='padding: 8px; border: 1px solid #ddd;'>{$data['date']}</td>
+            </tr>
+        </table>
+        
+        <p style='margin-top: 20px;'>Sie können diese Anmeldung im Admin-Bereich der Website einsehen und verwalten.</p>
+        
+        <hr>
+        <p style='font-size: 12px;'>
+            Diese E-Mail wurde automatisch vom Anmeldesystem von Pro Basketball GT e.V. gesendet.<br>
+            Bei Fragen oder Problemen kontaktieren Sie bitte den Webmaster.
+        </p>
+    </body>
+    </html>
+    ";
+    
+    // Header für HTML-E-Mail
+    $headers = "MIME-Version: 1.0" . "\r\n";
+    $headers .= "Content-type:text/html;charset=UTF-8" . "\r\n";
+    $headers .= "From: Pro Basketball GT e.V. Anmeldesystem <noreply@probasketballgt.de>" . "\r\n";
+    $headers .= "Reply-To: {$data['email']}" . "\r\n"; // Reply-To auf die E-Mail des neuen Mitglieds setzen
+    
+    // E-Mail senden
+    return mail($to, $subject, $message, $headers);
+}
+
 ?>

@@ -1,4 +1,7 @@
 <?php
+// Output-Buffering starten, um Probleme mit Weiterleitungen zu vermeiden
+ob_start();
+
 // Session muss vor jeder Ausgabe gestartet werden
 session_start();
 
@@ -94,23 +97,58 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             
             if ($registration_id) {
                 error_log("Anmeldung erfolgreich gespeichert, ID: " . $registration_id);
-                // Bestätigungsmail senden versuchen
+                // Bestätigungsmail an den Benutzer senden
                 try {
                     send_confirmation_email($data);
+                    error_log("Bestätigungsmail erfolgreich gesendet an: " . $email);
                 } catch (Exception $e) {
                     // E-Mail-Fehler protokollieren, aber Prozess fortsetzen
-                    error_log("E-Mail-Fehler: " . $e->getMessage());
+                    error_log("E-Mail-Fehler (Benutzer): " . $e->getMessage());
                 }
                 
-                // Erfolg: Zur Erfolgsseite weiterleiten
-                header("Location: ../success.php?id=" . $registration_id);
+                // Benachrichtigungsmail an den Administrator senden
+                try {
+                    send_admin_notification_email($data);
+                    error_log("Benachrichtigungsmail erfolgreich an Administrator gesendet");
+                } catch (Exception $e) {
+                    // E-Mail-Fehler protokollieren, aber Prozess fortsetzen
+                    error_log("E-Mail-Fehler (Admin): " . $e->getMessage());
+                }
+                
+                // URL zur Erfolgsseite erstellen
+                $success_url = "../success.php?id=" . $registration_id;
+                
+                // Erfolg: Zur Erfolgsseite weiterleiten mit Header
+                header("Location: " . $success_url);
+                
+                // JavaScript-Fallback für die Weiterleitung
+                echo "<script>window.location.href = '" . $success_url . "';</script>";
+                
+                // HTML-Fallback für die Weiterleitung
+                echo "<!DOCTYPE html>
+                <html>
+                <head>
+                    <meta http-equiv='refresh' content='0;url=" . $success_url . "'>
+                    <title>Weiterleitung...</title>
+                </head>
+                <body>
+                    <p>Ihre Anmeldung wurde erfolgreich gespeichert. Falls Sie nicht automatisch weitergeleitet werden, klicken Sie bitte <a href='" . $success_url . "'>hier</a>.</p>
+                </body>
+                </html>";
+                
+                // Buffer leeren und beenden
+                ob_end_flush();
                 exit;
             } else {
                 // Fehler beim Speichern
                 error_log("Fehler beim Speichern der Anmeldung: save_registration returned false");
                 $_SESSION['error_message'] = "Beim Speichern Ihrer Anmeldung ist ein Fehler aufgetreten. Bitte versuchen Sie es später noch einmal.";
                 $_SESSION['form_data'] = $_POST;
-                header("Location: ../index.html");
+                
+                // Zur Startseite zurückleiten mit Fehlermeldung
+                header("Location: ../index.html?error=" . urlencode("Beim Speichern Ihrer Anmeldung ist ein Fehler aufgetreten. Bitte versuchen Sie es später noch einmal."));
+                echo "<script>window.location.href = '../index.html?error=" . urlencode("Beim Speichern Ihrer Anmeldung ist ein Fehler aufgetreten. Bitte versuchen Sie es später noch einmal.") . "';</script>";
+                ob_end_flush();
                 exit;
             }
         } catch (Exception $e) {
@@ -118,7 +156,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             error_log("Datenbank-Exception: " . $e->getMessage());
             $_SESSION['error_message'] = "Datenbankfehler: " . $e->getMessage();
             $_SESSION['form_data'] = $_POST;
-            header("Location: ../index.html");
+            
+            // Zur Startseite zurückleiten mit Fehlermeldung
+            header("Location: ../index.html?error=" . urlencode("Datenbankfehler: " . $e->getMessage()));
+            echo "<script>window.location.href = '../index.html?error=" . urlencode("Datenbankfehler: " . $e->getMessage()) . "';</script>";
+            ob_end_flush();
             exit;
         }
     } else {
@@ -126,12 +168,19 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         error_log("Validierungsfehler: " . implode(", ", $errors));
         $_SESSION['error_message'] = "Bitte korrigieren Sie die folgenden Fehler:<br>" . implode("<br>", $errors);
         $_SESSION['form_data'] = $_POST;
-        header("Location: ../index.html");
+        
+        // Zur Startseite zurückleiten mit Fehlermeldung
+        $error_message = "Bitte korrigieren Sie die folgenden Fehler:<br>" . implode("<br>", $errors);
+        header("Location: ../index.html?error=" . urlencode($error_message));
+        echo "<script>window.location.href = '../index.html?error=" . urlencode($error_message) . "';</script>";
+        ob_end_flush();
         exit;
     }
 } else {
     // Wenn keine POST-Anfrage, zur Startseite umleiten
     header("Location: ../index.html");
+    echo "<script>window.location.href = '../index.html';</script>";
+    ob_end_flush();
     exit;
 }
 ?>
