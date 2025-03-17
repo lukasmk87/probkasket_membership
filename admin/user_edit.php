@@ -1,5 +1,4 @@
 <?php
-// admin/user_edit.php - Admin-Benutzer bearbeiten
 require_once '../includes/auth.php';
 
 // Nur Administratoren haben Zugriff
@@ -68,7 +67,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 $result = update_admin_user($id, $data);
                 
                 if ($result) {
-                    // Erfolg: Zurück zur Übersicht
+                    // Erfolg: Zurück zur Übersicht mit explizitem exit
                     header("Location: users.php?success=updated");
                     exit;
                 } else {
@@ -89,14 +88,16 @@ $csrf_token = generate_csrf_token();
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin-Benutzer bearbeiten - Pro Basketball GT e.V.</title>
     <link rel="stylesheet" href="../style.css">
-	<script src="js/darkmode.js"></script>
+    <script src="../js/darkmode.js"></script>
 </head>
 <body>
     <div class="container admin-container">
         <div class="admin-header">
             <h1>Admin-Benutzer bearbeiten</h1>
             <div>
-                <a href="users.php" class="btn-reset">Zurück zur Übersicht</a>
+                <p>Angemeldet als: <?php echo htmlspecialchars($_SESSION['admin_name']); ?> 
+                   (<?php echo $_SESSION['admin_role'] === 'admin' ? 'Administrator' : 'Editor'; ?>)</p>
+                <a href="logout.php" class="btn-reset">Abmelden</a>
             </div>
         </div>
         
@@ -112,12 +113,10 @@ $csrf_token = generate_csrf_token();
             <h2>Benutzer bearbeiten: <?php echo htmlspecialchars($user['username']); ?></h2>
             
             <?php if ($error): ?>
-                <div class="error-message" style="margin-bottom: 20px; padding: 10px; background-color: #f8d7da; color: #721c24; border-radius: 4px;">
-                    <?php echo $error; ?>
-                </div>
+                <div class="error-message"><?php echo $error; ?></div>
             <?php endif; ?>
             
-            <form method="POST" action="">
+            <form method="POST" action="user_edit.php?id=<?php echo $id; ?>">
                 <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
                 
                 <div class="form-row">

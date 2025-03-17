@@ -1,12 +1,10 @@
 <?php
-// admin/user_add.php - Neuen Admin-Benutzer hinzufügen
 require_once '../includes/auth.php';
 
 // Nur Administratoren haben Zugriff
 require_admin();
 
 $error = '';
-$success = false;
 
 // Überprüfen, ob das Formular abgeschickt wurde
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
@@ -44,7 +42,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $user_id = add_admin_user($data);
             
             if ($user_id) {
-                // Erfolg: Zurück zur Übersicht
+                // Erfolg: Zurück zur Übersicht mit explizitem exit
                 header("Location: users.php?success=added");
                 exit;
             } else {
@@ -64,14 +62,16 @@ $csrf_token = generate_csrf_token();
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Neuen Admin-Benutzer hinzufügen - Pro Basketball GT e.V.</title>
     <link rel="stylesheet" href="../style.css">
-	<script src="js/darkmode.js"></script>
+    <script src="../js/darkmode.js"></script>
 </head>
 <body>
     <div class="container admin-container">
         <div class="admin-header">
             <h1>Neuen Admin-Benutzer hinzufügen</h1>
             <div>
-                <a href="users.php" class="btn-reset">Zurück zur Übersicht</a>
+                <p>Angemeldet als: <?php echo htmlspecialchars($_SESSION['admin_name']); ?> 
+                   (<?php echo $_SESSION['admin_role'] === 'admin' ? 'Administrator' : 'Editor'; ?>)</p>
+                <a href="logout.php" class="btn-reset">Abmelden</a>
             </div>
         </div>
         
@@ -87,12 +87,10 @@ $csrf_token = generate_csrf_token();
             <h2>Neuen Benutzer anlegen</h2>
             
             <?php if ($error): ?>
-                <div class="error-message" style="margin-bottom: 20px; padding: 10px; background-color: #f8d7da; color: #721c24; border-radius: 4px;">
-                    <?php echo $error; ?>
-                </div>
+                <div class="error-message"><?php echo $error; ?></div>
             <?php endif; ?>
             
-            <form method="POST" action="">
+            <form method="POST" action="user_add.php">
                 <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
                 
                 <div class="form-row">

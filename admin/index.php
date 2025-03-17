@@ -3,6 +3,7 @@ require_once '../includes/auth.php';
 
 // Überprüfen, ob der Benutzer bereits eingeloggt ist
 if (is_logged_in()) {
+    // Direkte Weiterleitung zum Dashboard mit exit, um sicherzustellen, dass die Ausführung stoppt
     header("Location: dashboard.php");
     exit;
 }
@@ -15,6 +16,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $password = $_POST['password'] ?? '';
     
     if (login($username, $password)) {
+        // Nach erfolgreichem Login direkt zum Dashboard weiterleiten mit exit
         header("Location: dashboard.php");
         exit;
     } else {
@@ -29,7 +31,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Login - Pro Basketball GT e.V.</title>
     <link rel="stylesheet" href="../style.css">
-	<script src="js/darkmode.js"></script>
+    <script src="../js/darkmode.js"></script>
 </head>
 <body>
     <div class="container">
@@ -40,7 +42,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 <div class="error-message" style="margin-bottom: 20px;"><?php echo $error; ?></div>
             <?php endif; ?>
             
-            <form method="POST">
+            <form method="POST" action="index.php">
                 <div class="form-group">
                     <label for="username">Benutzername</label>
                     <input type="text" id="username" name="username" required>
