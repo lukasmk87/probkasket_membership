@@ -1,4 +1,3 @@
-// success.php - Erfolgsseite nach erfolgreicher Anmeldung
 <?php
 require_once 'includes/functions.php';
 

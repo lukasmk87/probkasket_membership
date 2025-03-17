@@ -1,4 +1,3 @@
-// admin/index.php - Login-Seite für Admin-Bereich
 <?php
 require_once '../includes/auth.php';
 

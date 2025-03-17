@@ -1,4 +1,3 @@
-// includes/process.php - Verarbeitung des Anmeldeformulars
 <?php
 require_once 'functions.php';
 

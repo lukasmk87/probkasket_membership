@@ -1,5 +1,5 @@
-// admin/dashboard.php - Admin-Dashboard
 <?php
+// admin/dashboard.php - Aktualisiert, um Benutzerverwaltung zu integrieren
 require_once '../includes/auth.php';
 require_once '../includes/functions.php';
 
@@ -31,6 +31,9 @@ $registrations = get_all_registrations();
             <ul>
                 <li><a href="dashboard.php" class="active">Dashboard</a></li>
                 <li><a href="export.php">Exportieren</a></li>
+                <?php if (is_admin()): // Nur Administratoren sehen den Menüpunkt ?>
+                <li><a href="users.php">Benutzerverwaltung</a></li>
+                <?php endif; ?>
             </ul>
         </nav>
         

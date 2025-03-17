@@ -427,3 +427,56 @@ table tr:nth-child(even) {
 .back-link:hover {
     text-decoration: underline;
 }
+
+/* Zusätzliche Styles für die Benutzerverwaltung */
+.form-static {
+    padding: 10px;
+    background-color: #f9f9f9;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.form-hint {
+    font-size: 0.8rem;
+    color: #666;
+    margin-top: 5px;
+}
+
+.success-message {
+    margin: 15px 0;
+    padding: 10px;
+    background-color: #d4edda;
+    color: #155724;
+    border-radius: 4px;
+}
+
+.role-admin {
+    color: #dc3545;
+    font-weight: bold;
+}
+
+.status-active {
+    color: #28a745;
+}
+
+.status-inactive {
+    color: #dc3545;
+}
+
+.admin-actions {
+    margin-bottom: 20px;
+}
+
+/* Anpassung der Checkbox in Formularen */
+.form-group.checkbox-group {
+    display: flex;
+    align-items: center;
+}
+
+.form-group.checkbox-group input[type="checkbox"] {
+    margin-right: 10px;
+}
+
+.form-group.checkbox-group label {
+    margin-bottom: 0;
+}
