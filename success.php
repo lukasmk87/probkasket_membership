@@ -1,4 +1,3 @@
-// success.php - Erfolgsseite nach erfolgreicher Anmeldung
 <?php
 require_once 'includes/functions.php';
 
@@ -27,6 +26,7 @@ if (!$registration) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Anmeldung erfolgreich - Pro Basketball GT e.V.</title>
     <link rel="stylesheet" href="style.css">
+    <script src="js/darkmode.js"></script>
 </head>
 <body>
     <div class="container">
