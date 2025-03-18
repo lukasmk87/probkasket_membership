@@ -1028,16 +1028,21 @@ function send_email_with_attachment($to, $subject, $message, $attachment_path = 
     return $result;
 }
 
-// Aktualisierte Funktion zum Senden einer Bestätigungsmail mit PDF-Anhang
-function send_confirmation_email($data, $registration_id = null) {
-    // PDF nur generieren, wenn eine ID übergeben wurde
+// Beispiel für die Aktualisierung der bestehenden send_confirmation_email Funktion:
+
+function send_confirmation_email($data) {
+    // Diese Funktion existiert bereits, also NUR DEN INHALT ÄNDERN, nicht neu deklarieren!
+    
+    // PDF nur generieren, wenn wir TCPDF installiert haben
     $pdf_path = null;
-    if ($registration_id !== null) {
+    $tcpdf_exists = file_exists(__DIR__ . '/../tcpdf/tcpdf.php');
+    
+    if ($tcpdf_exists && isset($data['id'])) {
         try {
-            $pdf_path = generate_registration_pdf($registration_id);
+            $pdf_path = generate_registration_pdf($data['id']);
         } catch (Exception $e) {
             error_log("Fehler beim Generieren des PDF-Anhangs: " . $e->getMessage());
-            // Weitermachen ohne Anhang, wenn Fehler auftritt
+            // Weitermachen ohne Anhang
         }
     }
     
@@ -1048,28 +1053,21 @@ function send_confirmation_email($data, $registration_id = null) {
     <html>
     <head>
         <title>Bestätigung Ihrer Anmeldung</title>
-        <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            h2 { color: #eb971b; }
-            .details { background-color: #f7f7f7; padding: 15px; border-left: 4px solid #eb971b; }
-            .footer { font-size: 12px; color: #777; margin-top: 30px; border-top: 1px solid #ddd; padding-top: 10px; }
-        </style>
     </head>
     <body>
         <h2>Vielen Dank für Ihre Anmeldung bei Pro Basketball GT e.V.!</h2>
         <p>Sehr geehrte(r) {$data['vorname']} {$data['name']},</p>
         <p>wir freuen uns, Ihre Anmeldung bei Pro Basketball GT e.V. bestätigen zu können. Ihre Mitgliedschaft ist nun aktiv.</p>
         
-        <div class='details'>
-            <h3>Ihre angegebenen Daten:</h3>
-            <ul>
-                <li><strong>Name:</strong> {$data['vorname']} {$data['name']}</li>
-                <li><strong>Adresse:</strong> {$data['strasse']}, {$data['plz_ort']}</li>
-                <li><strong>Telefon:</strong> {$data['telefon']}</li>
-                <li><strong>E-Mail:</strong> {$data['email']}</li>
-                <li><strong>Geburtsdatum:</strong> {$data['geburtsdatum']}</li>
-                <li><strong>Beteiligung:</strong> " . ($data['beteiligung'] == 'aktiv' ? 'Aktive Beteiligung' : 'Passive Unterstützung') . "</li>
-                <li><strong>Mitgliedsbeitrag:</strong> ";
+        <h3>Ihre angegebenen Daten:</h3>
+        <ul>
+            <li><strong>Name:</strong> {$data['vorname']} {$data['name']}</li>
+            <li><strong>Adresse:</strong> {$data['strasse']}, {$data['plz_ort']}</li>
+            <li><strong>Telefon:</strong> {$data['telefon']}</li>
+            <li><strong>E-Mail:</strong> {$data['email']}</li>
+            <li><strong>Geburtsdatum:</strong> {$data['geburtsdatum']}</li>
+            <li><strong>Beteiligung:</strong> " . ($data['beteiligung'] == 'aktiv' ? 'Aktive Beteiligung' : 'Passive Unterstützung') . "</li>
+            <li><strong>Mitgliedsbeitrag:</strong> ";
     
     // Beitrag anzeigen
     if ($data['beitrag'] == '10') {
@@ -1081,51 +1079,66 @@ function send_confirmation_email($data, $registration_id = null) {
     }
     
     $message .= "</li>
-            </ul>
-        </div>
+        </ul>
         
-        <p>Der Jahresbeitrag wird gemäß Ihrer Einzugsermächtigung von Ihrem angegebenen Konto in der zweiten Jahreshälfte abgebucht.</p>
-        
-        <p>Im Anhang finden Sie eine PDF-Datei mit Ihrer Beitrittserklärung. Bitte bewahren Sie diese für Ihre Unterlagen auf.</p>
-        
+        <p>Der Jahresbeitrag wird gemäß Ihrer Einzugsermächtigung von Ihrem angegebenen Konto in der zweiten Jahreshälfte abgebucht.</p>";
+    
+    if ($pdf_path !== null) {
+        $message .= "<p>Im Anhang finden Sie eine PDF-Datei mit Ihrer Beitrittserklärung. Bitte bewahren Sie diese für Ihre Unterlagen auf.</p>";
+    }
+    
+    $message .= "
         <p>Falls Sie Fragen oder Anliegen haben, können Sie uns jederzeit unter info@probasketballgt.de kontaktieren.</p>
         
         <p>Mit sportlichen Grüßen,<br>Ihr Team von Pro Basketball GT e.V.</p>
         
-        <div class='footer'>
-            <p>
-                Pro Basketball GT e.V.<br>
-                Pavenstädter Weg 35<br>
-                33334 Gütersloh<br>
-                E-Mail: info@probasketballgt.de<br>
-                Web: www.probasketballgt.de
-            </p>
-        </div>
+        <hr>
+        <p style='font-size: 12px;'>
+            Pro Basketball GT e.V.<br>
+            Pavenstädter Weg 35<br>
+            33334 Gütersloh<br>
+            E-Mail: info@probasketballgt.de<br>
+            Web: www.probasketballgt.de
+        </p>
     </body>
     </html>
     ";
     
-    // E-Mail mit Anhang senden
-    $result = send_email_with_attachment($to, $subject, $message, $pdf_path);
+    // E-Mail-Header
+    $headers = "MIME-Version: 1.0" . "\r\n";
     
-    // Wenn die E-Mail gesendet wurde und ein PDF generiert wurde, dieses löschen
-    if ($result && $pdf_path && file_exists($pdf_path)) {
-        @unlink($pdf_path); // Temporäre PDF-Datei löschen
+    if ($pdf_path !== null) {
+        // E-Mail mit Anhang senden
+        $result = send_email_with_attachment($to, $subject, $message, $pdf_path);
+        
+        // Temporäre PDF-Datei löschen
+        if (file_exists($pdf_path)) {
+            @unlink($pdf_path);
+        }
+    } else {
+        // Normale HTML-E-Mail senden
+        $headers .= "Content-type:text/html;charset=UTF-8" . "\r\n";
+        $headers .= "From: Pro Basketball GT e.V. <info@probasketballgt.de>" . "\r\n";
+        $result = mail($to, $subject, $message, $headers);
     }
     
     return $result;
 }
 
 // Aktualisierte Funktion zum Senden einer Benachrichtigungsmail an den Administrator mit PDF-Anhang
-function send_admin_notification_email($data, $registration_id = null) {
-    // PDF nur generieren, wenn eine ID übergeben wurde
+function send_admin_notification_email($data) {
+    // Diese Funktion existiert bereits, also NUR DEN INHALT ÄNDERN, nicht neu deklarieren!
+    
+    // PDF nur generieren, wenn wir TCPDF installiert haben und die ID haben
     $pdf_path = null;
-    if ($registration_id !== null) {
+    $tcpdf_exists = file_exists(__DIR__ . '/../tcpdf/tcpdf.php');
+    
+    if ($tcpdf_exists && isset($data['id'])) {
         try {
-            $pdf_path = generate_registration_pdf($registration_id);
+            $pdf_path = generate_registration_pdf($data['id']);
         } catch (Exception $e) {
             error_log("Fehler beim Generieren des PDF-Anhangs für Admin: " . $e->getMessage());
-            // Weitermachen ohne Anhang, wenn Fehler auftritt
+            // Weitermachen ohne Anhang
         }
     }
     
@@ -1137,52 +1150,44 @@ function send_admin_notification_email($data, $registration_id = null) {
     <html>
     <head>
         <title>Neue Vereinsanmeldung</title>
-        <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            h2 { color: #eb971b; }
-            table { border-collapse: collapse; width: 100%; margin: 20px 0; }
-            th, td { text-align: left; padding: 8px; border: 1px solid #ddd; }
-            th { background-color: #f2f2f2; }
-            .footer { font-size: 12px; color: #777; margin-top: 30px; }
-        </style>
     </head>
     <body>
         <h2>Neue Vereinsanmeldung eingegangen</h2>
         <p>Ein neues Mitglied hat sich bei Pro Basketball GT e.V. angemeldet:</p>
         
         <h3>Mitgliedsdaten:</h3>
-        <table>
+        <table style='border-collapse: collapse; width: 100%;'>
             <tr>
-                <th>Feld</th>
-                <th>Wert</th>
+                <th style='text-align: left; padding: 8px; border: 1px solid #ddd; background-color: #f2f2f2;'>Feld</th>
+                <th style='text-align: left; padding: 8px; border: 1px solid #ddd; background-color: #f2f2f2;'>Wert</th>
             </tr>
             <tr>
-                <td><strong>Name</strong></td>
-                <td>{$data['vorname']} {$data['name']}</td>
+                <td style='padding: 8px; border: 1px solid #ddd;'><strong>Name</strong></td>
+                <td style='padding: 8px; border: 1px solid #ddd;'>{$data['vorname']} {$data['name']}</td>
             </tr>
             <tr>
-                <td><strong>Adresse</strong></td>
-                <td>{$data['strasse']}, {$data['plz_ort']}</td>
+                <td style='padding: 8px; border: 1px solid #ddd;'><strong>Adresse</strong></td>
+                <td style='padding: 8px; border: 1px solid #ddd;'>{$data['strasse']}, {$data['plz_ort']}</td>
             </tr>
             <tr>
-                <td><strong>Telefon</strong></td>
-                <td>{$data['telefon']}</td>
+                <td style='padding: 8px; border: 1px solid #ddd;'><strong>Telefon</strong></td>
+                <td style='padding: 8px; border: 1px solid #ddd;'>{$data['telefon']}</td>
             </tr>
             <tr>
-                <td><strong>E-Mail</strong></td>
-                <td>{$data['email']}</td>
+                <td style='padding: 8px; border: 1px solid #ddd;'><strong>E-Mail</strong></td>
+                <td style='padding: 8px; border: 1px solid #ddd;'>{$data['email']}</td>
             </tr>
             <tr>
-                <td><strong>Geburtsdatum</strong></td>
-                <td>{$data['geburtsdatum']}</td>
+                <td style='padding: 8px; border: 1px solid #ddd;'><strong>Geburtsdatum</strong></td>
+                <td style='padding: 8px; border: 1px solid #ddd;'>{$data['geburtsdatum']}</td>
             </tr>
             <tr>
-                <td><strong>Beteiligung</strong></td>
-                <td>" . ($data['beteiligung'] == 'aktiv' ? 'Aktive Beteiligung' : 'Passive Unterstützung') . "</td>
+                <td style='padding: 8px; border: 1px solid #ddd;'><strong>Beteiligung</strong></td>
+                <td style='padding: 8px; border: 1px solid #ddd;'>" . ($data['beteiligung'] == 'aktiv' ? 'Aktive Beteiligung' : 'Passive Unterstützung') . "</td>
             </tr>
             <tr>
-                <td><strong>Mitgliedsbeitrag</strong></td>
-                <td>";
+                <td style='padding: 8px; border: 1px solid #ddd;'><strong>Mitgliedsbeitrag</strong></td>
+                <td style='padding: 8px; border: 1px solid #ddd;'>";
     
     // Beitrag anzeigen
     if ($data['beitrag'] == '10') {
@@ -1196,40 +1201,52 @@ function send_admin_notification_email($data, $registration_id = null) {
     $message .= "</td>
             </tr>
             <tr>
-                <td><strong>IBAN</strong></td>
-                <td>{$data['iban']}</td>
+                <td style='padding: 8px; border: 1px solid #ddd;'><strong>IBAN</strong></td>
+                <td style='padding: 8px; border: 1px solid #ddd;'>{$data['iban']}</td>
             </tr>
             <tr>
-                <td><strong>Bank</strong></td>
-                <td>{$data['bank']}</td>
+                <td style='padding: 8px; border: 1px solid #ddd;'><strong>Bank</strong></td>
+                <td style='padding: 8px; border: 1px solid #ddd;'>{$data['bank']}</td>
             </tr>
             <tr>
-                <td><strong>Datum</strong></td>
-                <td>{$data['date']}</td>
+                <td style='padding: 8px; border: 1px solid #ddd;'><strong>Datum</strong></td>
+                <td style='padding: 8px; border: 1px solid #ddd;'>{$data['date']}</td>
             </tr>
-        </table>
+        </table>";
+    
+    if ($pdf_path !== null) {
+        $message .= "<p>Die Beitrittserklärung des Mitglieds finden Sie im Anhang als PDF-Datei.</p>";
+    }
+    
+    $message .= "
+        <p>Sie können diese Anmeldung im Admin-Bereich der Website einsehen und verwalten.</p>
         
-        <p>Die Beitrittserklärung des Mitglieds finden Sie im Anhang als PDF-Datei.</p>
-        <p>Sie können diese Anmeldung auch im Admin-Bereich der Website einsehen und verwalten.</p>
-        
-        <div class='footer'>
-            <p>
-                Diese E-Mail wurde automatisch vom Anmeldesystem von Pro Basketball GT e.V. gesendet.<br>
-                Bei Fragen oder Problemen kontaktieren Sie bitte den Webmaster.
-            </p>
-        </div>
+        <hr>
+        <p style='font-size: 12px;'>
+            Diese E-Mail wurde automatisch vom Anmeldesystem von Pro Basketball GT e.V. gesendet.<br>
+            Bei Fragen oder Problemen kontaktieren Sie bitte den Webmaster.
+        </p>
     </body>
     </html>
     ";
     
-    // E-Mail mit Anhang senden und Reply-To auf die E-Mail des neuen Mitglieds setzen
-    $result = send_email_with_attachment($to, $subject, $message, $pdf_path, null, $data['email']);
+    // E-Mail-Header
+    $headers = "MIME-Version: 1.0" . "\r\n";
     
-    // PDF löschen, falls es das gleiche ist wie bei der Bestätigungsmail, wird es dort bereits gelöscht
-    if ($result && $pdf_path && file_exists($pdf_path)) {
-        @unlink($pdf_path); // Temporäre PDF-Datei löschen
+    if ($pdf_path !== null) {
+        // E-Mail mit Anhang senden und Reply-To auf die E-Mail des neuen Mitglieds setzen
+        $result = send_email_with_attachment($to, $subject, $message, $pdf_path, null, $data['email']);
+        
+        // Die PDF-Datei wurde bereits in der ersten E-Mail gelöscht oder wird in send_email_with_attachment gelöscht
+    } else {
+        // Normale HTML-E-Mail senden
+        $headers .= "Content-type:text/html;charset=UTF-8" . "\r\n";
+        $headers .= "From: Pro Basketball GT e.V. Anmeldesystem <noreply@probasketballgt.de>" . "\r\n";
+        $headers .= "Reply-To: {$data['email']}" . "\r\n";
+        $result = mail($to, $subject, $message, $headers);
     }
     
     return $result;
 }
+
 ?>
