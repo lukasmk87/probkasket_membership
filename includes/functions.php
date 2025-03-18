@@ -284,7 +284,330 @@ function export_registrations_csv($beteiligung = '', $search = '') {
     $stmt->close();
 }
 
+// Verbesserte CSV Export-Funktion, die ein ordnungsgemäßes Download sicherstellt
+function export_registrations_csv_download($beteiligung = '', $search = '') {
+    global $conn;
+    
+    // Get the registrations data
+    $sql = "SELECT id, name, vorname, strasse, plz_ort, telefon, email, geburtsdatum, beteiligung, beitrag, beitrag_custom, iban, bank, date_submitted FROM registrations WHERE 1=1";
+    $params = [];
+    $types = "";
+    
+    if (!empty($beteiligung)) {
+        $sql .= " AND beteiligung = ?";
+        $params[] = $beteiligung;
+        $types .= "s";
+    }
+    
+    if (!empty($search)) {
+        $sql .= " AND (name LIKE ? OR vorname LIKE ? OR email LIKE ? OR plz_ort LIKE ?)";
+        $searchTerm = "%$search%";
+        $params[] = $searchTerm;
+        $params[] = $searchTerm;
+        $params[] = $searchTerm;
+        $params[] = $searchTerm;
+        $types .= "ssss";
+    }
+    
+    $sql .= " ORDER BY date_submitted DESC";
+    
+    $stmt = $conn->prepare($sql);
+    
+    if (!empty($params)) {
+        $stmt->bind_param($types, ...$params);
+    }
+    
+    $stmt->execute();
+    $result = $stmt->get_result();
+    
+    // Create a temporary file
+    $temp_file = tempnam(sys_get_temp_dir(), 'csv');
+    $f = fopen($temp_file, 'w');
+    
+    // UTF-8 BOM für Excel-Kompatibilität
+    fputs($f, "\xEF\xBB\xBF");
+    
+    // Set CSV headers
+    fputcsv($f, [
+        'ID', 'Name', 'Vorname', 'Straße', 'PLZ / Ort', 'Telefon', 'E-Mail',
+        'Geburtsdatum', 'Beteiligung', 'Beitrag', 'Individueller Beitrag', 'IBAN', 'Bank', 'Datum'
+    ]);
+    
+    // Output all records
+    while ($row = $result->fetch_assoc()) {
+        fputcsv($f, $row);
+    }
+    
+    fclose($f);
+    
+    // Set headers for CSV download
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename=anmeldungen_' . date('Y-m-d') . '.csv');
+    header('Content-Length: ' . filesize($temp_file));
+    
+    // Output the file
+    readfile($temp_file);
+    unlink($temp_file); // Delete the temporary file
+    
+    $stmt->close();
+    exit;
+}
 
+// Funktion zum Exportieren von Anmeldungen als XLSX (Excel)
+function export_registrations_xlsx($beteiligung = '', $search = '') {
+    global $conn;
+    
+    // Get the registrations data
+    $sql = "SELECT id, name, vorname, strasse, plz_ort, telefon, email, geburtsdatum, beteiligung, beitrag, beitrag_custom, iban, bank, date_submitted FROM registrations WHERE 1=1";
+    $params = [];
+    $types = "";
+    
+    if (!empty($beteiligung)) {
+        $sql .= " AND beteiligung = ?";
+        $params[] = $beteiligung;
+        $types .= "s";
+    }
+    
+    if (!empty($search)) {
+        $sql .= " AND (name LIKE ? OR vorname LIKE ? OR email LIKE ? OR plz_ort LIKE ?)";
+        $searchTerm = "%$search%";
+        $params[] = $searchTerm;
+        $params[] = $searchTerm;
+        $params[] = $searchTerm;
+        $params[] = $searchTerm;
+        $types .= "ssss";
+    }
+    
+    $sql .= " ORDER BY date_submitted DESC";
+    
+    $stmt = $conn->prepare($sql);
+    
+    if (!empty($params)) {
+        $stmt->bind_param($types, ...$params);
+    }
+    
+    $stmt->execute();
+    $result = $stmt->get_result();
+    
+    // Create a temporary file
+    $temp_file = tempnam(sys_get_temp_dir(), 'xlsx');
+    
+    // Check if we have the PhpSpreadsheet library, if not, fall back to CSV
+    if (!class_exists('PhpOffice\PhpSpreadsheet\Spreadsheet')) {
+        // PhpSpreadsheet not available, create a simple CSV file
+        $f = fopen($temp_file, 'w');
+        
+        // UTF-8 BOM for Excel compatibility
+        fputs($f, "\xEF\xBB\xBF");
+        
+        // Set CSV headers
+        fputcsv($f, [
+            'ID', 'Name', 'Vorname', 'Straße', 'PLZ / Ort', 'Telefon', 'E-Mail',
+            'Geburtsdatum', 'Beteiligung', 'Beitrag', 'Individueller Beitrag', 'IBAN', 'Bank', 'Datum'
+        ]);
+        
+        // Output all records
+        while ($row = $result->fetch_assoc()) {
+            fputcsv($f, $row);
+        }
+        
+        fclose($f);
+        
+        // Set headers for CSV download
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename=anmeldungen_' . date('Y-m-d') . '.csv');
+        header('Content-Length: ' . filesize($temp_file));
+        
+        // Output the file
+        readfile($temp_file);
+        unlink($temp_file); // Delete the temporary file
+        exit;
+    }
+    
+    // Try to include Composer autoloader if available
+    $autoload_paths = [
+        __DIR__ . '/../vendor/autoload.php',
+        __DIR__ . '/../../vendor/autoload.php'
+    ];
+    
+    foreach ($autoload_paths as $path) {
+        if (file_exists($path)) {
+            require_once $path;
+            break;
+        }
+    }
+    
+    // If PhpSpreadsheet is not found even after trying autoload, fall back to CSV
+    if (!class_exists('PhpOffice\PhpSpreadsheet\Spreadsheet')) {
+        // Call the CSV download function as fallback
+        export_registrations_csv_download($beteiligung, $search);
+        exit;
+    }
+    
+    // If we have PhpSpreadsheet, create a proper XLSX file
+    $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+    $sheet = $spreadsheet->getActiveSheet();
+    
+    // Set headers
+    $headers = [
+        'ID', 'Name', 'Vorname', 'Straße', 'PLZ / Ort', 'Telefon', 'E-Mail',
+        'Geburtsdatum', 'Beteiligung', 'Beitrag', 'Individueller Beitrag', 'IBAN', 'Bank', 'Datum'
+    ];
+    
+    // Set headers in first row
+    foreach ($headers as $column => $header) {
+        $sheet->setCellValueByColumnAndRow($column + 1, 1, $header);
+    }
+    
+    // Set data
+    $row = 2;
+    while ($data = $result->fetch_assoc()) {
+        $col = 1;
+        foreach ($data as $value) {
+            $sheet->setCellValueByColumnAndRow($col, $row, $value);
+            $col++;
+        }
+        $row++;
+    }
+    
+    // Style the header row
+    $sheet->getStyle('A1:N1')->getFont()->setBold(true);
+    $sheet->getStyle('A1:N1')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFCCCCCC');
+    
+    // Auto-size columns
+    foreach (range('A', 'N') as $col) {
+        $sheet->getColumnDimension($col)->setAutoSize(true);
+    }
+    
+    // Create XLSX writer
+    $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+    $writer->save($temp_file);
+    
+    // Set headers for XLSX download
+    header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    header('Content-Disposition: attachment; filename=anmeldungen_' . date('Y-m-d') . '.xlsx');
+    header('Content-Length: ' . filesize($temp_file));
+    header('Cache-Control: max-age=0');
+    
+    // Output the file
+    readfile($temp_file);
+    unlink($temp_file); // Delete the temporary file
+    
+    $stmt->close();
+    exit;
+}
+
+// Funktion zum Exportieren von Anmeldungen als OTT (OpenDocument Text)
+function export_registrations_ott($beteiligung = '', $search = '') {
+    global $conn;
+    
+    // Get the registrations data
+    $sql = "SELECT id, name, vorname, strasse, plz_ort, telefon, email, geburtsdatum, beteiligung, beitrag, beitrag_custom, iban, bank, date_submitted FROM registrations WHERE 1=1";
+    $params = [];
+    $types = "";
+    
+    if (!empty($beteiligung)) {
+        $sql .= " AND beteiligung = ?";
+        $params[] = $beteiligung;
+        $types .= "s";
+    }
+    
+    if (!empty($search)) {
+        $sql .= " AND (name LIKE ? OR vorname LIKE ? OR email LIKE ? OR plz_ort LIKE ?)";
+        $searchTerm = "%$search%";
+        $params[] = $searchTerm;
+        $params[] = $searchTerm;
+        $params[] = $searchTerm;
+        $params[] = $searchTerm;
+        $types .= "ssss";
+    }
+    
+    $sql .= " ORDER BY date_submitted DESC";
+    
+    $stmt = $conn->prepare($sql);
+    
+    if (!empty($params)) {
+        $stmt->bind_param($types, ...$params);
+    }
+    
+    $stmt->execute();
+    $result = $stmt->get_result();
+    
+    // Create a temporary file
+    $temp_file = tempnam(sys_get_temp_dir(), 'ott');
+    
+    // Try to include Composer autoloader if available
+    $autoload_paths = [
+        __DIR__ . '/../vendor/autoload.php',
+        __DIR__ . '/../../vendor/autoload.php'
+    ];
+    
+    foreach ($autoload_paths as $path) {
+        if (file_exists($path)) {
+            require_once $path;
+            break;
+        }
+    }
+    
+    // Check if PhpSpreadsheet is available
+    if (!class_exists('PhpOffice\PhpSpreadsheet\Spreadsheet')) {
+        // PhpSpreadsheet not available, create a simple CSV file instead
+        export_registrations_csv_download($beteiligung, $search);
+        exit;
+    }
+    
+    // If we have PhpSpreadsheet, create an ODS file (OpenDocument Spreadsheet) 
+    // which is close to OTT but better supported
+    $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+    $sheet = $spreadsheet->getActiveSheet();
+    
+    // Set headers
+    $headers = [
+        'ID', 'Name', 'Vorname', 'Straße', 'PLZ / Ort', 'Telefon', 'E-Mail',
+        'Geburtsdatum', 'Beteiligung', 'Beitrag', 'Individueller Beitrag', 'IBAN', 'Bank', 'Datum'
+    ];
+    
+    // Set headers in first row
+    foreach ($headers as $column => $header) {
+        $sheet->setCellValueByColumnAndRow($column + 1, 1, $header);
+    }
+    
+    // Set data
+    $row = 2;
+    while ($data = $result->fetch_assoc()) {
+        $col = 1;
+        foreach ($data as $value) {
+            $sheet->setCellValueByColumnAndRow($col, $row, $value);
+            $col++;
+        }
+        $row++;
+    }
+    
+    // Style the header row
+    $sheet->getStyle('A1:N1')->getFont()->setBold(true);
+    
+    // Auto-size columns
+    foreach (range('A', 'N') as $col) {
+        $sheet->getColumnDimension($col)->setAutoSize(true);
+    }
+    
+    // Create ODS writer
+    $writer = new \PhpOffice\PhpSpreadsheet\Writer\Ods($spreadsheet);
+    $writer->save($temp_file);
+    
+    // Set headers for ODS download
+    header('Content-Type: application/vnd.oasis.opendocument.spreadsheet');
+    header('Content-Disposition: attachment; filename=anmeldungen_' . date('Y-m-d') . '.ods');
+    header('Content-Length: ' . filesize($temp_file));
+    header('Cache-Control: max-age=0');
+    
+    // Output the file
+    readfile($temp_file);
+    unlink($temp_file); // Delete the temporary file
+    
+    $stmt->close();
+    exit;
+}
 
 // Funktion zum Abrufen von Statistiken
 function get_registration_statistics() {
@@ -566,6 +889,7 @@ function export_registration_as_pdf($id) {
         throw new Exception("Fehler beim Erzeugen des PDFs: " . $e->getMessage());
     }
 }
+
 // Funktion zum Generieren einer PDF für eine Anmeldung (speichert Datei statt direktem Download)
 function generate_registration_pdf($id, $save_path = null) {
     global $conn;
@@ -814,6 +1138,7 @@ function generate_registration_pdf($id, $save_path = null) {
     
     return $filepath;
 }
+
 // Funktion zum Senden einer E-Mail mit Anhang
 function send_email_with_attachment($to, $subject, $message, $attachment_path = null, $from_email = null, $reply_to = null) {
     // Wenn keine Absender-E-Mail angegeben, Standardwert verwenden
@@ -1093,5 +1418,4 @@ function send_admin_notification_email($data) {
     
     return $result;
 }
-
 ?>
